@@ -2,6 +2,8 @@
 
 Deine All-in-One-Fitness-App: **Essen, Training, Progress & PRs** in einer App, mit **automatischer Progression**.
 
+Design: tiefschwarz mit Champagner-Gold, clean und minimal. **Heute** zeigt die Gesamtübersicht: Kalorien- und Makro-Ring, Schnellaktionen, Wochenleiste, Training, Gewicht, Wasser, Muskeln, Rekorde, Fotos, Maße, Streak und Coach.
+
 Tabs: **Heute** · **Essen** · **Training** · **Progress** (Körper / Muskeln / Fotos / PRs) · **Mehr**
 Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen Account. Alle Daten bleiben auf deinem Gerät.
 
