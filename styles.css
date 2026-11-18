@@ -198,3 +198,6 @@ video.scan { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 4
 .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .cmp img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 12px; background: #000; display: block; margin-bottom: 6px; }
 .cmp select { font-size: 13px; padding: 8px; }
+.cmp-teaser { display: block; width: 100%; background: none; border: 0; padding: 0; text-align: left; color: inherit; }
+.tap-card { cursor: pointer; }
+.tap-card:active { transform: scale(.99); }

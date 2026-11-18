@@ -1,6 +1,8 @@
 # 🏋️ Gym Tracker
 
-Deine komplette Fitness-Journey in einer App: **Ernährung, Gewicht, Training** mit **automatischer Progression**.
+Deine All-in-One-Fitness-App: **Essen, Training, Progress & PRs** in einer App, mit **automatischer Progression**.
+
+Tabs: **Heute** · **Essen** · **Training** · **Progress** (Körper / Fotos / PRs) · **Mehr**
 Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen Account. Alle Daten bleiben auf deinem Gerät.
 
 ## Features
@@ -12,12 +14,18 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - Favoriten, „Zuletzt gegessen“ zum Loggen mit einem Tipp, Vortag kopieren
 - Wasser-Tracker
 
-**⚖️ Gewicht & Körper**
+**📈 Progress: Körper & Fotos**
 - Wöchentliche Wiege-Erinnerung: Banner in der App, Benachrichtigung und **Kalender-Termin (.ics)**, der jede Woche klingelt
 - Gewichtsverlauf mit Diagramm, Zielgewicht, kg/Woche-Trend und Prognose, wann du dein Ziel erreichst
 - Körpermaße (Bauch, Brust, Arm …, KFA)
 - **Fortschrittsfotos** mit Vorher/Nachher-Vergleich (Abstand in Wochen und Gewichtsdifferenz). Sie werden verkleinert und nur auf dem Gerät gespeichert.
 - **Coach**: prüft dein Tempo beim Abnehmen oder Aufbauen und sagt dir, ob du mehr oder weniger essen solltest
+
+**🏆 Progress: PRs**
+- Kraft-PRs werden **automatisch** aus deinen Trainings erkannt (bester Satz und geschätztes 1RM pro Übung)
+- **Eigene PRs eintragen**: Gewicht × Wdh (z.B. 1RM-Test), Wiederholungen (max. Klimmzüge), Zeit (5 km Lauf, Plank), Distanz oder freier Text (erster Muscle-Up)
+- Die App erkennt, ob der Eintrag ein neuer Bestwert ist, und zeigt den Verlauf pro Rekord als Diagramm
+- PR-Timeline, „PRs diesen Monat“ und der letzte PR auf der Startseite
 
 **💪 Training**
 - Fertige Pläne: Push/Pull/Beine, Oberkörper/Unterkörper, Ganzkörper A/B, Zuhause mit Kurzhanteln. Die Startseite schlägt automatisch den nächsten Plan in der Rotation vor.

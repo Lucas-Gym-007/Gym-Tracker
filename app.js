@@ -154,7 +154,7 @@ const DEFAULTS = () => ({
     kcal: 2200, protein: 150, carbs: 220, fat: 70, water: 2500, weeklyWorkouts: 3,
     weighDay: 1, weighTime: '08:00', bar: 20,
   },
-  foods: [], favFoods: [], water: {}, weights: [], measures: [],
+  foods: [], favFoods: [], water: {}, weights: [], measures: [], prs: [],
   exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
   routines: DEFAULT_ROUTINES.map(r => ({ ...r, exIds: [...r.exIds] })),
   workouts: [], active: null,
@@ -164,7 +164,7 @@ const DEFAULTS = () => ({
 /* ---------- State ---------- */
 const KEY = 'gymtracker.v1';
 let S = load();
-const UI = { tab: 'today', foodDate: today(), bodyRange: 90, rest: null };
+const UI = { tab: 'today', prog: 'body', foodDate: today(), bodyRange: 90, rest: null };
 
 function load() {
   const d = DEFAULTS();
@@ -384,6 +384,117 @@ function startWorkout(routineId) {
   save(); UI.tab = 'train'; render(); window.scrollTo(0, 0);
 }
 
+/* ---------- PRs (automatisch aus Trainings + eigene Einträge) ---------- */
+const PR_KINDS = { lift: 'Gewicht × Wdh', reps: 'Wiederholungen', time: 'Zeit', dist: 'Distanz', other: 'Sonstiges' };
+function parseTime(s) {
+  const parts = String(s || '').trim().split(':').map(num);
+  if (!parts.length || parts.some(x => x == null || x < 0)) return null;
+  return parts.reduce((a, x) => a * 60 + x, 0);
+}
+function prScore(p) {
+  switch (p.kind) {
+    case 'lift': return e1rm(p.w || 0, p.r) + (p.w ? 0 : p.r * 0.001);
+    case 'reps': return p.r;
+    case 'time': return p.more ? p.sec : -p.sec;
+    case 'dist': return p.km;
+    default: return 0;
+  }
+}
+function prLabel(p) {
+  switch (p.kind) {
+    case 'lift': return p.w ? `${fmt(p.w, 2)} kg × ${p.r}` : `${p.r} Wdh.`;
+    case 'reps': return `${p.r} Wdh.`;
+    case 'time': return mmss(p.sec);
+    case 'dist': return `${fmt(p.km, 2)} km`;
+    default: return esc(p.text);
+  }
+}
+const prKey = p => p.kind + '|' + (p.exId || p.title.trim().toLowerCase());
+function autoPRs() { // Bestwert je Übung + jedes Mal, wenn er im Training übertroffen wurde
+  const best = {}, events = [];
+  for (const w of [...S.workouts].sort((a, b) => a.start - b.start)) for (const e of w.entries) {
+    const s = bestSet(e.sets); if (!s) continue;
+    const prev = best[e.exId];
+    if (!prev || setScore(s) > setScore(prev.set) + 1e-6) {
+      if (prev) events.push({ date: w.date, ts: w.start, exId: e.exId, set: s });
+      best[e.exId] = { set: s, date: w.date };
+    }
+  }
+  return { best, events };
+}
+function liftBest(exId, auto = autoPRs()) {
+  const a = auto.best[exId];
+  const m = S.prs.filter(p => p.kind === 'lift' && p.exId === exId).reduce((b, p) => (!b || prScore(p) > prScore(b) ? p : b), null);
+  if (m && (!a || prScore(m) > setScore(a.set))) return { w: m.w, r: m.r, date: m.date, manual: true };
+  return a ? { ...a.set, date: a.date } : null;
+}
+function manualPrGroups() {
+  const g = {};
+  for (const p of S.prs) (g[prKey(p)] ||= []).push(p);
+  return Object.entries(g).map(([key, items]) => {
+    items.sort((a, b) => b.date.localeCompare(a.date));
+    const best = items[0].kind === 'other' ? items[0] : items.reduce((b, p) => (prScore(p) > prScore(b) ? p : b));
+    return { key, items, best };
+  }).sort((a, b) => b.items[0].date.localeCompare(a.items[0].date));
+}
+function prFeed(auto = autoPRs()) {
+  return [
+    ...auto.events.map(e => ({ date: e.date, ts: e.ts, title: exById(e.exId)?.name || '?', label: prLabel({ kind: 'lift', ...e.set }), src: 'Training' })),
+    ...S.prs.filter(p => p.isPr).map(p => ({ date: p.date, ts: p.ts || 0, title: p.title, label: prLabel(p), src: 'Eingetragen' })),
+  ].sort((x, y) => y.date.localeCompare(x.date) || y.ts - x.ts);
+}
+const relDay = d => { const n = daysBetween(d, today()); return n <= 0 ? 'heute' : n === 1 ? 'gestern' : `vor ${n} Tagen`; };
+
+function prSheet(pre = {}) {
+  const kind = pre.kind || 'lift';
+  const titles = [...new Set([...S.exercises.map(e => e.name), ...S.prs.map(p => p.title)])];
+  openSheet(`<h2>🏆 PR eintragen</h2>
+    <label class="f"><span>Art</span><select id="pr_kind">${Object.entries(PR_KINDS).map(([k, l]) => `<option value="${k}" ${k === kind ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="f"><span>Was?</span><input id="pr_title" list="pr_titles" value="${esc(pre.title || '')}" placeholder="z.B. Bankdrücken, 5 km Lauf, Plank" autocomplete="off">
+      <datalist id="pr_titles">${titles.map(t => `<option value="${esc(t)}">`).join('')}</datalist></label>
+    <div class="grid2" data-k="lift"><label class="f"><span>Gewicht (kg)</span><input id="pr_w" inputmode="decimal"></label>
+      <label class="f"><span>Wiederholungen</span><input id="pr_r" inputmode="numeric" value="1"></label></div>
+    <div data-k="reps"><label class="f"><span>Wiederholungen</span><input id="pr_reps" inputmode="numeric"></label></div>
+    <div data-k="time"><label class="f"><span>Zeit (mm:ss oder h:mm:ss)</span><input id="pr_time" inputmode="text" placeholder="24:30"></label>
+      <label class="row" style="margin-bottom:10px"><input type="checkbox" id="pr_more" ${pre.more ? 'checked' : ''}> <span>Länger ist besser (z.B. Plank, Dead Hang)</span></label></div>
+    <div data-k="dist"><label class="f"><span>Distanz (km)</span><input id="pr_km" inputmode="decimal"></label></div>
+    <div data-k="other"><label class="f"><span>Ergebnis</span><input id="pr_text" placeholder="z.B. Erster Muscle-Up 🎉"></label></div>
+    <div class="grid2"><label class="f"><span>Datum</span><input id="pr_date" type="date" value="${today()}" max="${today()}"></label>
+      <label class="f"><span>Notiz</span><input id="pr_note" placeholder="optional"></label></div>
+    <div id="pr_hint" class="small muted"></div>
+    <div class="sheet-actions"><button class="btn" data-act="closeSheet">Abbrechen</button><button class="btn primary" data-act="savePr">Speichern</button></div>`);
+  prKindFields();
+}
+function prKindFields() {
+  const k = $('#pr_kind').value;
+  $$('#sheet [data-k]').forEach(el => el.classList.toggle('hidden', el.dataset.k !== k));
+  prHint();
+}
+function prHint() {
+  const el = $('#pr_hint'); if (!el) return;
+  const k = $('#pr_kind').value, t = $('#pr_title').value.trim();
+  if (!t) { el.textContent = ''; return; }
+  const ex = S.exercises.find(e => e.name.toLowerCase() === t.toLowerCase());
+  let best = null;
+  if (k === 'lift' && ex) { const b = liftBest(ex.id); if (b) best = prLabel({ kind: 'lift', ...b }) + (b.w ? ` (e1RM ${fmt(e1rm(b.w, b.r), 1)} kg)` : ''); }
+  else { const g = manualPrGroups().find(g => g.key === k + '|' + t.toLowerCase()); if (g) best = prLabel(g.best); }
+  el.innerHTML = best ? `Aktueller Bestwert: <b>${best}</b> – schlag ihn! 💪` : 'Erster Eintrag – zählt automatisch als PR. 🎉';
+}
+function prGroupSheet(key) {
+  const g = manualPrGroups().find(x => x.key === key); if (!g) return closeSheet();
+  const k = g.best.kind;
+  const val = p => (k === 'time' ? p.sec / 60 : k === 'lift' ? (p.w ? e1rm(p.w, p.r) : p.r) : k === 'reps' ? p.r : p.km);
+  const pts = k === 'other' ? [] : g.items.slice().reverse().map(p => [parseYmd(p.date).getTime(), val(p)]);
+  openSheet(`<h2>🏆 ${esc(g.best.title)}</h2>
+    <div class="small muted">${PR_KINDS[k]} · Bestwert <b style="color:var(--accent)">${prLabel(g.best)}</b> am ${fmtDate(g.best.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}</div>
+    ${pts.length > 1 ? `<h3>Verlauf${k === 'time' ? ' (Minuten)' : k === 'lift' ? ' (e1RM)' : ''}</h3>${lineChart([{ pts, color: 'var(--accent)', dots: true }])}` : ''}
+    <div class="list" style="margin-top:12px">${g.items.map(p => `<div class="item"><div class="t"><b>${prLabel(p)} ${p.id === g.best.id ? '🏆' : ''}</b>
+      <span>${fmtDate(p.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}${p.note ? ' · ' + esc(p.note) : ''}</span></div>
+      <button class="x" data-act="delPr" data-id="${p.id}" data-key="${esc(key)}">×</button></div>`).join('')}</div>
+    <div class="sheet-actions"><button class="btn" data-act="closeSheet">Schließen</button>
+      <button class="btn primary" data-act="addPr" data-kind="${k}" data-title="${esc(g.best.title)}" data-more="${g.best.more ? 1 : ''}">+ Neuer Versuch</button></div>`);
+}
+
 /* ---------- Views ---------- */
 const VIEWS = {};
 
@@ -452,6 +563,9 @@ VIEWS.today = () => {
     ${S.active ? '' : `<div class="row">${nextR ? `<button class="btn primary grow" data-act="startWorkout" data-id="${nextR.id}">▶ ${esc(nextR.name.split(' (')[0])} starten</button>` : ''}
       <button class="btn" data-act="tab" data-tab="train">Alle Pläne</button></div>`}
   </div>
+
+  ${(() => { const f = prFeed()[0]; return f ? `<div class="card tap-card" data-act="goPrs"><div class="row"><span style="font-size:26px">🏆</span>
+    <div class="grow"><b>Letzter PR: ${esc(f.title)}</b><div class="small muted">${f.label} · ${relDay(f.date)}</div></div><span class="muted">›</span></div></div>` : ''; })()}
 
   <div class="card">
     <div class="card-head"><h2>Gewicht</h2>${lw ? `<span class="muted small">zuletzt ${fmtDate(lw.date)}</span>` : ''}</div>
@@ -592,6 +706,13 @@ function workoutLogger() {
 }
 
 VIEWS.body = () => {
+  const seg = `<div class="seg">${[['body', '⚖️ Körper'], ['photos', '📸 Fotos'], ['prs', '🏆 PRs']].map(([k, l]) =>
+    `<button class="${UI.prog === k ? 'on' : ''}" data-act="progSeg" data-k="${k}">${l}</button>`).join('')}</div>`;
+  return `<h1>Progress</h1><div class="sub">Körper, Fotos und Rekorde – dein Fortschritt auf einen Blick.</div>${seg}
+    ${UI.prog === 'photos' ? progPhotos() : UI.prog === 'prs' ? progPRs() : progBody()}`;
+};
+
+function progBody() {
   const st = S.settings;
   const ws = [...S.weights].sort((a, b) => a.date.localeCompare(b.date));
   const from = UI.bodyRange ? addDays(today(), -UI.bodyRange) : '0000';
@@ -602,10 +723,9 @@ VIEWS.body = () => {
   const MF = [['waist', 'Bauch'], ['chest', 'Brust'], ['arm', 'Arm'], ['thigh', 'Oberschenkel'], ['hip', 'Hüfte'], ['bf', 'KFA %']];
   const nxt = nextWeighSlot();
   return `
-  <h1>Körper</h1>
-  <div class="sub">Nächster Wiege-Termin: ${weighDue() ? '<b style="color:var(--orange)">jetzt fällig</b>' : `${DAYS[nxt.getDay()]}, ${nxt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} ${S.settings.weighTime} Uhr`}</div>
   <div class="card">
     <div class="card-head"><h2>Gewicht</h2><button class="btn sm primary" data-act="addWeight">+ Wiegen</button></div>
+    <div class="small muted" style="margin:-4px 0 10px">Nächster Wiege-Termin: ${weighDue() ? '<b style="color:var(--orange)">jetzt fällig</b>' : `${DAYS[nxt.getDay()]}, ${nxt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} ${S.settings.weighTime} Uhr`}</div>
     <div class="grid3" style="margin-bottom:10px">
       <div class="stat"><b>${last ? fmt(last.kg, 1) : '–'}</b><span>aktuell (kg)</span></div>
       <div class="stat"><b class="${first && last ? ((last.kg - first.kg < 0) === (st.goal !== 'bulk') ? 'up' : 'down') : ''}">${first && last ? sgn(last.kg - first.kg) : '–'}</b><span>seit Start</span></div>
@@ -625,17 +745,6 @@ VIEWS.body = () => {
       ${p ? `<span class="pill">${sgn(w.kg - p.kg)}</span>` : ''}<button class="x" data-act="delWeight" data-id="${w.id}">×</button></div>`;
   }).join('')}</div>` : ''}
 
-  <h3>Fortschrittsfotos</h3>
-  <div class="card">
-    <div class="card-head"><h2>📸 Fotos</h2><div class="row">
-      ${PH.list.length >= 2 ? '<button class="btn sm" data-act="photoCompare">⇆ Vergleich</button>' : ''}
-      <button class="btn sm primary" data-act="addPhoto">+ Foto</button></div></div>
-    ${PH.list.length ? `<div class="photos">${PH.list.map(p => `<button class="ph" data-act="openPhoto" data-id="${p.id}">
-      <img src="${p.url}" alt="" loading="lazy"><span>${fmtDate(p.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}${p.kg ? ` · ${fmt(p.kg, 1)} kg` : ''}</span></button>`).join('')}</div>`
-    : `<div class="empty small">${PH.ready ? 'Mach alle 2–4 Wochen ein Foto – gleiches Licht, gleiche Pose. Im Vergleich siehst du Fortschritt, den Waage & Spiegel nicht zeigen.' : 'Lade Fotos …'}</div>`}
-    <div class="small muted" style="margin-top:8px">🔒 Fotos bleiben nur auf diesem Gerät und sind nicht im JSON-Backup enthalten.</div>
-  </div>
-
   <h3>Körpermaße</h3>
   <div class="card">
     <div class="card-head"><h2>📏 Maße</h2><button class="btn sm" data-act="addMeasure">+ Messen</button></div>
@@ -649,7 +758,55 @@ VIEWS.body = () => {
       <span>${MF.filter(([k]) => m[k] != null).map(([k, l]) => `${l} ${fmt(m[k], 1)}`).join(' · ')}</span></div><button class="x" data-act="delMeasure" data-id="${m.id}">×</button></div>`).join('')}</div>`
     : '<div class="empty small">Miss alle 2–4 Wochen Bauch, Brust, Arme … – oft siehst du hier Fortschritt, auch wenn die Waage stagniert.</div>'}
   </div>`;
-};
+}
+
+function progPhotos() {
+  const a = PH.list.at(-1), b = PH.list[0];
+  return `
+  <div class="card">
+    <div class="card-head"><h2>📸 Fortschrittsfotos</h2><button class="btn sm primary" data-act="addPhoto">+ Foto</button></div>
+    ${PH.list.length >= 2 ? `<button class="cmp-teaser" data-act="photoCompare">
+      <div class="cmp"><img src="${a.url}" alt=""><img src="${b.url}" alt=""></div>
+      <div class="row" style="margin-top:6px"><b class="grow">⇆ Erstes vs. neuestes Foto</b>
+        <span class="pill acc">${fmt(Math.max(0, daysBetween(a.date, b.date)) / 7)} Wochen${a.kg != null && b.kg != null ? ` · ${sgn(b.kg - a.kg)} kg` : ''}</span></div></button>
+      <div class="hr"></div>` : ''}
+    ${PH.list.length ? `<div class="photos">${PH.list.map(p => `<button class="ph" data-act="openPhoto" data-id="${p.id}">
+      <img src="${p.url}" alt="" loading="lazy"><span>${fmtDate(p.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}${p.kg ? ` · ${fmt(p.kg, 1)} kg` : ''}</span></button>`).join('')}</div>`
+    : `<div class="empty small">${PH.ready ? 'Mach alle 2–4 Wochen ein Foto – gleiches Licht, gleiche Pose, gleiche Uhrzeit. Im Vergleich siehst du Fortschritt, den Waage & Spiegel nicht zeigen.' : 'Lade Fotos …'}</div>`}
+    <div class="small muted" style="margin-top:8px">🔒 Fotos bleiben nur auf diesem Gerät und sind nicht im JSON-Backup enthalten.</div>
+  </div>`;
+}
+
+function progPRs() {
+  const auto = autoPRs(), groups = manualPrGroups();
+  const lifts = S.exercises.map(ex => ({ ex, b: liftBest(ex.id, auto) })).filter(x => x.b)
+    .sort((x, y) => (y.b.w ? e1rm(y.b.w, y.b.r) : 0) - (x.b.w ? e1rm(x.b.w, x.b.r) : 0));
+  const feed = prFeed(auto);
+  const month = today().slice(0, 7);
+  return `
+  <div class="grid3" style="margin-bottom:12px">
+    <div class="stat"><b>${feed.filter(f => f.date.startsWith(month)).length} 🏆</b><span>PRs diesen Monat</span></div>
+    <div class="stat"><b>${feed.length}</b><span>PRs gesamt</span></div>
+    <div class="stat"><b>${feed[0] ? daysBetween(feed[0].date, today()) + ' T' : '–'}</b><span>seit letztem PR</span></div>
+  </div>
+  <button class="btn primary block" data-act="addPr">+ PR eintragen</button>
+  <div class="small muted" style="margin:6px 2px 0">Kraft-PRs aus deinen Trainings werden automatisch erkannt. Hier kannst du alles andere festhalten: Laufzeiten, max. Klimmzüge, Plank, 1RM-Tests …</div>
+
+  ${groups.length ? `<h3>Eigene Rekorde</h3><div class="list">${groups.map(g => `<div class="item tap" data-act="openPrGroup" data-key="${esc(g.key)}">
+    <div class="t"><b>${esc(g.best.title)}</b><span>${PR_KINDS[g.best.kind]} · ${g.items.length} Eintr${g.items.length > 1 ? 'äge' : 'ag'} · ${fmtDate(g.best.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}</span></div>
+    <b>${prLabel(g.best)}</b><span class="muted">›</span></div>`).join('')}</div>` : ''}
+
+  <h3>Kraft-Bestwerte</h3>
+  ${lifts.length ? `<div class="list">${lifts.map(({ ex, b }) => `<div class="item tap" data-act="openExercise" data-id="${ex.id}">
+    <div class="t"><b>${esc(ex.name)}</b><span>${b.w ? `e1RM ${fmt(e1rm(b.w, b.r), 1)} kg · ` : ''}${fmtDate(b.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}${b.manual ? ' · eingetragen' : ''}</span></div>
+    <b>${prLabel({ kind: 'lift', ...b })}</b><span class="muted">›</span></div>`).join('')}</div>`
+  : '<div class="empty small">Noch keine Kraftwerte – nach deinem ersten Training stehen hier deine Bestleistungen.</div>'}
+
+  <h3>PR-Timeline</h3>
+  ${feed.length ? `<div class="list">${feed.slice(0, 25).map(f => `<div class="item"><span style="font-size:20px">🏆</span><div class="t"><b>${esc(f.title)}</b>
+    <span>${fmtDate(f.date, { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' })} · ${f.src}</span></div><b>${f.label}</b></div>`).join('')}</div>`
+  : '<div class="empty small">Dein erster PR wartet. 💪</div>'}`;
+}
 
 VIEWS.more = () => {
   const st = S.settings;
@@ -1276,6 +1433,35 @@ const A = {
     await loadPhotos(); render();
   },
   addPhoto: () => $('#photoFile').click(),
+  progSeg: el => { UI.prog = el.dataset.k; render(); },
+  goPrs: () => { UI.tab = 'body'; UI.prog = 'prs'; render(); window.scrollTo(0, 0); },
+  addPr: el => prSheet({ kind: el.dataset.kind, title: el.dataset.title, more: !!el.dataset.more }),
+  openPrGroup: el => prGroupSheet(el.dataset.key),
+  delPr: el => {
+    if (!confirm('Eintrag löschen?')) return;
+    S.prs = S.prs.filter(p => p.id !== el.dataset.id); save(); render(); prGroupSheet(el.dataset.key);
+  },
+  savePr: () => {
+    const kind = $('#pr_kind').value, title = $('#pr_title').value.trim();
+    if (!title) return toast('Bitte angeben, was du geschafft hast');
+    const ex = S.exercises.find(e => e.name.toLowerCase() === title.toLowerCase());
+    const p = { id: uid(), kind, title: ex ? ex.name : title, exId: ex && kind === 'lift' ? ex.id : null, date: $('#pr_date').value || today(), note: $('#pr_note').value.trim() };
+    if (kind === 'lift') { p.w = num($('#pr_w').value) ?? 0; p.r = Math.round(num($('#pr_r').value) || 0); if (p.r < 1) return toast('Wiederholungen eingeben (Gewicht leer = Körpergewicht)'); }
+    else if (kind === 'reps') { p.r = Math.round(num($('#pr_reps').value) || 0); if (p.r < 1) return toast('Wiederholungen eingeben'); }
+    else if (kind === 'time') { p.sec = parseTime($('#pr_time').value); p.more = $('#pr_more').checked; if (!p.sec) return toast('Zeit eingeben, z.B. 24:30'); }
+    else if (kind === 'dist') { p.km = num($('#pr_km').value); if (!p.km) return toast('Distanz eingeben'); }
+    else { p.text = $('#pr_text').value.trim(); if (!p.text) return toast('Ergebnis eingeben'); }
+    const prev = S.prs.filter(x => prKey(x) === prKey(p));
+    if (prev.length) p.title = prev[0].title; // einheitliche Schreibweise
+    p.ts = Date.now();
+    let prevBest = prev.length ? Math.max(...prev.map(prScore)) : -Infinity;
+    if (p.exId) { const a = autoPRs().best[p.exId]; if (a) prevBest = Math.max(prevBest, setScore(a.set)); }
+    p.isPr = kind === 'other' || prScore(p) > prevBest + 1e-9;
+    S.prs.push(p); save(); closeSheet();
+    UI.tab = 'body'; UI.prog = 'prs'; render(); window.scrollTo(0, 0);
+    if (p.isPr) { toast(`🎉 Neuer PR: ${p.title}!`); navigator.vibrate?.([60, 40, 60, 40, 120]); }
+    else toast('✓ Eingetragen – knapp dran am Bestwert!');
+  },
   openPhoto: el => photoSheet(el.dataset.id),
   photoCompare: el => compareSheet(null, el.dataset.b),
   savePhoto: async el => {
@@ -1319,6 +1505,7 @@ document.addEventListener('input', e => {
   if (t.id === 'fq') renderFoodResults();
   else if (t.id === 'exq') renderExPicker();
   else if (t.id === 'fa_g') updateAmountPreview();
+  else if (t.id === 'pr_title') prHint();
   else if (t.dataset.bind && S.active) {
     if (t.dataset.bind === 'name') S.active.name = t.value;
     else S.active.entries[+t.dataset.e].sets[+t.dataset.s][t.dataset.bind] = num(t.value);
@@ -1327,6 +1514,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'r_add' && e.target.value) { RC.exIds.push(e.target.value); renderRoutineSheet(); }
+  if (e.target.id === 'pr_kind') prKindFields();
   if (e.target.id === 'photoFile' && e.target.files.length) { addPhotos([...e.target.files]); e.target.value = ''; }
   if (e.target.id === 'cmp_a' || e.target.id === 'cmp_b') compareSheet($('#cmp_a').value, $('#cmp_b').value);
   if (e.target.id === 'importFile' && e.target.files[0]) {
