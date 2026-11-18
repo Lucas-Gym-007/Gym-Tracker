@@ -49,6 +49,13 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - **Abzeichen:** 30 Erfolge für Training, Streaks, Rekorde, Volumen, 100/140/180-kg-Club, Ernährung, Cardio und Fotos
 - **PR-Ziele mit Deadline:** Fortschrittsbalken, Restzeit und Prognose, ob du es rechtzeitig schaffst
 - **Foto mit Overlay:** Die Kamera blendet das letzte Foto halbtransparent ein, für exakt gleiche Posen, inklusive Selbstauslöser (3 s / 10 s)
+- **Live-Vergleich im Workout:** pro Satz ▲/▼ gegenüber dem letzten Mal, dazu das Übungsvolumen heute im Vergleich
+- **Supplements & Gewohnheiten:** tägliche Häkchen mit Streaks auf Home, z.B. Kreatin, Vitamin D, Schritte, Schlaf
+- **Meal-Prep:** Rezepte für die Woche einplanen, als gekocht markieren, dann aus dem Vorrat portionsweise essen und eintragen
+- **Einkaufsliste:** Zutaten aus Meal-Prep und Rezepten zusammengerechnet, abhaken, teilen
+- **Wöchentlicher Check-in:** Gewicht, Energie, Schlaf, Hunger, Stress, Training und Plantreue, mit Coach-Auswertung und Verlauf
+- **Teilbare Karten:** Workout, Rückblick und Vorher/Nachher als edles Bild (1080 × 1350) zum Teilen oder Speichern
+- **Tipp des Tages** auf Home: über 30 Tipps zu Training, Ernährung, Regeneration und Fortschritt
 
 **💪 Training**
 - **Plan-Baukasten**: Trainingsplan aus Trainingstagen zusammenstellen, Sätze pro Übung festlegen, als Rotation (x× pro Woche) oder mit festen Wochentagen. Das geplante Volumen pro Muskel siehst du live beim Bauen.
