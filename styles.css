@@ -213,7 +213,7 @@ video.scan { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 4
 .pill.low { background: color-mix(in srgb, var(--orange) 18%, transparent); color: var(--orange); }
 .pill.ok { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .pill.high { background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--blue); }
-.bodymap { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-width: 380px; margin: 0 auto; }
+.bodymap { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-width: 320px; margin: 0 auto; }
 .bodymap svg { width: 100%; height: auto; display: block; }
 .bodymap svg [data-act] { cursor: pointer; transition: fill-opacity .2s; }
 .bodymap .lbl { text-align: center; font-size: 12px; color: var(--muted); }
@@ -239,3 +239,14 @@ video.scan { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 4
   animation: drop .3s cubic-bezier(.2,.8,.2,1);
 }
 @keyframes drop { from { transform: translate(-50%, -140%); } }
+
+/* Körpermodell */
+:root { --body: #232833; --muscle: #3a4150; }
+.slider { display: grid; grid-template-columns: 1fr 1.4fr 48px; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+.slider span { color: var(--muted); }
+.slider b { text-align: right; font-variant-numeric: tabular-nums; }
+.slider input[type=range] { padding: 0; background: none; border: 0; accent-color: var(--accent); height: 28px; }
+.presets { gap: 8px; }
+.preset { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 6px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-weight: 600; font-size: 13px; }
+.preset svg { width: 100%; max-width: 110px; height: auto; }
+.preset.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; color: var(--accent); }

@@ -507,38 +507,278 @@ function vbar(v, [mn, mx], plan = null) {
     <i class="${volStatus(v, [mn, mx])}" style="width:${pct(v)}%"></i>${plan != null ? `<b class="plan" style="left:${pct(plan)}%"></b>` : ''}</div>`;
 }
 
-/* Körperkarte: [muskel, form, ...geometrie] – e = Ellipse (cx,cy,rx,ry), r = Rechteck (x,y,w,h,rx), p = Polygon */
-const MAP_FRONT = [
-  ['frontdelt', 'e', 68, 66, 11, 10], ['frontdelt', 'e', 132, 66, 11, 10], ['sidedelt', 'e', 55, 72, 6, 11], ['sidedelt', 'e', 145, 72, 6, 11],
-  ['chest', 'e', 86, 80, 15, 12], ['chest', 'e', 114, 80, 15, 12], ['biceps', 'e', 57, 102, 8, 17], ['biceps', 'e', 143, 102, 8, 17],
-  ['forearms', 'e', 52, 142, 7, 20], ['forearms', 'e', 148, 142, 7, 20], ['abs', 'r', 87, 95, 26, 54, 8],
-  ['quads', 'e', 87, 197, 13, 35], ['quads', 'e', 113, 197, 13, 35], ['calves', 'e', 86, 260, 8, 22], ['calves', 'e', 114, 260, 8, 22],
-];
-const MAP_BACK = [
-  ['upperback', 'p', '82,50 118,50 128,68 117,100 83,100 72,68'], ['reardelt', 'e', 63, 68, 10, 9], ['reardelt', 'e', 137, 68, 10, 9],
-  ['sidedelt', 'e', 54, 74, 5, 10], ['sidedelt', 'e', 146, 74, 5, 10],
-  ['lats', 'p', '72,76 84,102 92,132 80,130 69,100'], ['lats', 'p', '128,76 116,102 108,132 120,130 131,100'],
-  ['triceps', 'e', 57, 102, 8, 17], ['triceps', 'e', 143, 102, 8, 17], ['forearms', 'e', 52, 142, 7, 20], ['forearms', 'e', 148, 142, 7, 20],
-  ['lowerback', 'r', 89, 104, 22, 40, 6], ['glutes', 'e', 88, 166, 13, 14], ['glutes', 'e', 112, 166, 13, 14],
-  ['hams', 'e', 87, 208, 12, 28], ['hams', 'e', 113, 208, 12, 28], ['calves', 'e', 86, 260, 9, 21], ['calves', 'e', 114, 260, 9, 21],
-];
-const SILHOUETTE = `<circle cx="100" cy="26" r="15"/><rect x="93" y="38" width="14" height="12" rx="4"/><rect x="70" y="50" width="60" height="104" rx="18"/>
-  <rect x="47" y="58" width="20" height="66" rx="10"/><rect x="133" y="58" width="20" height="66" rx="10"/><rect x="43" y="118" width="18" height="48" rx="9"/><rect x="139" y="118" width="18" height="48" rx="9"/>
-  <rect x="74" y="146" width="52" height="30" rx="12"/><rect x="73" y="160" width="26" height="124" rx="12"/><rect x="101" y="160" width="26" height="124" rx="12"/>`;
-function bodyMap(vol) {
-  const shape = ([m, t, ...g]) => {
-    const v = vol[m] || 0, tg = effTarget(m), st = volStatus(v, tg);
-    const fill = { none: 'var(--card2)', low: 'var(--orange)', ok: 'var(--accent)', high: 'var(--blue)' }[st];
-    const op = st === 'low' ? (0.4 + 0.6 * v / tg[0]).toFixed(2) : 1;
-    const a = `data-act="openMuscle" data-m="${m}" fill="${fill}" fill-opacity="${op}" stroke="${isFocus(m) ? 'var(--text)' : 'var(--bg)'}" stroke-width="${isFocus(m) ? 2 : 1.5}"`;
-    if (t === 'e') return `<ellipse ${a} cx="${g[0]}" cy="${g[1]}" rx="${g[2]}" ry="${g[3]}"/>`;
-    if (t === 'r') return `<rect ${a} x="${g[0]}" y="${g[1]}" width="${g[2]}" height="${g[3]}" rx="${g[4]}"/>`;
-    return `<polygon ${a} points="${g[0]}"/>`;
+/* ---------- Körpermodell: anatomische Figur aus deinen Körperwerten ---------- */
+const BODY_PRESETS = {
+  slim: { label: 'Schlank', bmi: 20.5, musc: 0.94, bf: 11 },
+  athletic: { label: 'Athletisch', bmi: 23.5, musc: 1.07, bf: 12 },
+  muscular: { label: 'Muskulös', bmi: 27, musc: 1.18, bf: 13 },
+  heavy: { label: 'Kräftig', bmi: 31, musc: 1.02, bf: 28 },
+};
+const BODY_SLIDERS = [['sh', 'Schultern'], ['ch', 'Brust / Oberkörper'], ['wa', 'Taille / Bauch'], ['hi', 'Hüfte'], ['ar', 'Arme'], ['le', 'Oberschenkel'], ['ca', 'Waden']];
+const MEASURE_KEYS = ['shoulders', 'chest', 'waist', 'hip', 'arm', 'thigh', 'calf'];
+const bodyCfg = () => ({ mode: 'auto', preset: 'athletic', adj: {}, bfAdj: 0, ...(S.settings.body || {}) });
+
+// Umfänge (cm) aus BMI schätzen (Näherungen), skaliert mit der Körpergröße
+function estimateBody(sex, bmi, age, h) {
+  const m = sex !== 'f', hs = Math.pow(h / (m ? 178 : 165), 0.6);
+  const e = m
+    ? { chest: 1.9 * bmi + 57, waist: 2.4 * bmi + 26, hip: 1.6 * bmi + 62, arm: 0.9 * bmi + 11, thigh: 1.3 * bmi + 27, calf: 0.45 * bmi + 27, bf: 1.2 * bmi + 0.23 * age - 16.2 }
+    : { chest: 1.7 * bmi + 52, waist: 2.3 * bmi + 22, hip: 2.0 * bmi + 55, arm: 0.85 * bmi + 8.5, thigh: 1.5 * bmi + 25, calf: 0.45 * bmi + 25, bf: 1.2 * bmi + 0.23 * age - 5.4 };
+  for (const k of ['chest', 'waist', 'hip', 'arm', 'thigh', 'calf']) e[k] *= hs;
+  e.shoulders = e.chest * (m ? 1.13 : 1.06);
+  e.bf = Math.max(m ? 6 : 13, e.bf);
+  return e;
+}
+// Datenquelle für die Figur: 'latest' (jetzt) oder 'first' (Start)
+function bodySource(which = 'latest', forceMode) {
+  const st = S.settings, b = bodyCfg(), sex = st.sex === 'f' ? 'f' : 'm';
+  const h = st.height || (sex === 'f' ? 168 : 180), age = st.age || 30;
+  const mode = forceMode || b.mode;
+  if (mode === 'preset') {
+    const p = BODY_PRESETS[b.preset] || BODY_PRESETS.athletic;
+    const e = estimateBody(sex, p.bmi, age, h);
+    for (const k of ['chest', 'shoulders', 'arm', 'thigh', 'calf']) e[k] *= p.musc;
+    const srcs = Object.fromEntries(MEASURE_KEYS.map(k => [k, 'Vorlage']));
+    return { sex, h, kg: p.bmi * (h / 100) ** 2, c: e, bf: p.bf + (sex === 'f' ? 8 : 0), srcs, mode };
+  }
+  const ws = [...S.weights].sort((x, y) => x.date.localeCompare(y.date));
+  const w = which === 'first' ? ws[0] : ws.at(-1);
+  const kg = w?.kg ?? (sex === 'f' ? 62 : 78) * (h / (sex === 'f' ? 165 : 178)) ** 2;
+  const bmi = kg / (h / 100) ** 2;
+  const est = estimateBody(sex, bmi, age, h);
+  const ms = [...S.measures].sort((x, y) => x.date.localeCompare(y.date));
+  const pick = k => { const arr = ms.filter(m => m[k] != null); const m = which === 'first' ? arr[0] : arr.at(-1); return m ? m[k] : null; };
+  const c = {}, srcs = {};
+  for (const k of MEASURE_KEYS) {
+    const v = pick(k);
+    c[k] = v ?? est[k]; srcs[k] = v != null ? 'gemessen' : 'geschätzt';
+  }
+  if (srcs.shoulders === 'geschätzt' && srcs.chest === 'gemessen') c.shoulders = c.chest * (sex === 'f' ? 1.06 : 1.13);
+  const bfM = pick('bf');
+  return { sex, h, kg, bmi, c, bf: bfM ?? est.bf, bfSrc: bfM != null ? 'gemessen' : 'geschätzt', srcs, date: w?.date, mode };
+}
+// Umfänge → Geometrie der Figur (Einheiten: Figur ist ~395 hoch, Mitte x = 100)
+function bodyParams(src, useAdj = true) {
+  const b = bodyCfg(), A = useAdj ? b.adj || {} : {}, a = k => A[k] ?? 1;
+  const u = 395 / src.h, c = src.c, cl = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const bf = cl(src.bf + (useAdj ? b.bfAdj || 0 : 0), 4, 50);
+  const P = {
+    sex: src.sex, bf,
+    shoulderW: cl(c.shoulders / 5.0 * u * a('sh'), 34, 72),
+    chestW: cl(c.chest / 6.2 * u * a('ch'), 24, 60),
+    waistW: cl(c.waist / (src.sex === 'f' ? 6.1 : 5.8) * u * a('wa'), 18, 64),
+    hipW: cl(c.hip / (src.sex === 'f' ? 5.25 : 5.6) * u * a('hi'), 24, 62),
+    ua: cl(c.arm / 6.28 * u * a('ar'), 6, 20),
+    thigh: cl(c.thigh / 6.28 * u * a('le'), 11, 30),
+    calf: cl(c.calf / 6.28 * u * a('ca'), 7, 19),
   };
-  const svg = (shapes, label) => `<div><svg viewBox="30 0 140 290" role="img" aria-label="${label}"><g fill="var(--card)" stroke="var(--line)">${SILHOUETTE}</g>${shapes.map(shape).join('')}</svg><div class="lbl">${label}</div></div>`;
-  return `<div class="bodymap">${svg(MAP_FRONT, 'Vorne')}${svg(MAP_BACK, 'Hinten')}</div>
-    <div class="legend"><span><i style="background:var(--card2);border:1px solid var(--line)"></i>nichts</span><span><i style="background:var(--orange)"></i>unter Ziel</span>
-    <span><i style="background:var(--accent)"></i>im Ziel</span><span><i style="background:var(--blue)"></i>über Ziel</span><span><i style="border:2px solid var(--text)"></i>Fokus</span></div>`;
+  P.shoulderW = Math.min(72, Math.max(P.shoulderW, P.chestW + P.ua * 1.6));
+  P.fa = P.ua * 0.86;
+  P.neck = cl(7.6 + (P.chestW - 34) * 0.16, 6.6, 12);
+  // Arme
+  P.armTop = Math.max(P.shoulderW - P.ua * 0.95, P.chestW + P.ua * 0.7);
+  P.elbow = Math.max(P.armTop + 2, P.waistW + P.ua * 0.72 + 1.5, P.chestW * 0.92 + P.ua * 0.6);
+  P.wrist = Math.max(P.elbow + 2.5, P.hipW + P.fa * 0.62 + 1.5);
+  P.arm = [[64, P.armTop - 1, P.ua * 0.85], [80, P.armTop, P.ua * 1.02], [102, P.armTop + (P.elbow - P.armTop) * 0.4, P.ua], [128, P.armTop + (P.elbow - P.armTop) * 0.8, P.ua * 0.92],
+    [152, P.elbow, P.ua * 0.72], [170, P.elbow + (P.wrist - P.elbow) * 0.25, P.fa], [196, P.elbow + (P.wrist - P.elbow) * 0.62, P.fa * 0.8],
+    [220, P.wrist, P.fa * 0.5], [234, P.wrist + 0.6, P.fa * 0.66], [252, P.wrist + 1.2, P.fa * 0.4]];
+  // Beine
+  P.legCx = Math.max(P.hipW - P.thigh, P.thigh * 0.88 + 0.5);
+  P.kneeH = Math.max(P.thigh * 0.56, P.calf * 0.78);
+  P.kneeCx = Math.max(P.legCx * 0.8, P.kneeH + 1.2);
+  P.ankleCx = Math.max(P.kneeCx * 0.88, 6.5);
+  P.leg = [[198, P.legCx, P.thigh * 1.04], [228, P.legCx, P.thigh], [262, (P.legCx + P.kneeCx) / 2, P.thigh * 0.84], [298, P.kneeCx, P.kneeH],
+    [316, P.kneeCx, P.calf * 0.9], [334, P.kneeCx * 0.98, P.calf], [360, P.kneeCx * 0.4 + P.ankleCx * 0.6, P.calf * 0.66],
+    [380, P.ankleCx, 5], [389, P.ankleCx + 1.5, 6.4], [397, P.ankleCx + 2.6, 4.6]];
+  // Definition: je weniger Körperfett, desto sichtbarer die Muskeltrennung
+  const thr = P.sex === 'f' ? 32 : 24;
+  P.def = cl((thr - bf) / 12, 0.2, 1);
+  P.absBlocks = bf < (P.sex === 'f' ? 25 : 18);
+  P.sep = 0.7 + P.def * 1.1;
+  P.W = Math.max(76, P.wrist + P.fa * 0.7 + 4, P.shoulderW + 4); // fester Maßstab → breitere Körper wirken auch breiter
+  return P;
+}
+
+const _f = p => p[0].toFixed(1) + ' ' + p[1].toFixed(1);
+function smoothPath(pts, closed = true, t = 1) { // Catmull-Rom → Bezier
+  const n = pts.length, g = i => pts[(i + n) % n];
+  let d = 'M' + _f(pts[0]);
+  for (let i = 0; i < (closed ? n : n - 1); i++) {
+    const p0 = closed ? g(i - 1) : pts[Math.max(0, i - 1)], p1 = g(i), p2 = g(i + 1), p3 = closed ? g(i + 2) : pts[Math.min(n - 1, i + 2)];
+    const c1 = [p1[0] + (p2[0] - p0[0]) * t / 6, p1[1] + (p2[1] - p0[1]) * t / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) * t / 6, p2[1] - (p3[1] - p1[1]) * t / 6];
+    d += 'C' + _f(c1) + ' ' + _f(c2) + ' ' + _f(p2);
+  }
+  return d + (closed ? 'Z' : '');
+}
+function lensPath(p1, p2, w, bias = 0.5) { // spindelförmiger Muskelbauch zwischen zwei Punkten
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  const at = (t, k) => [p1[0] + dx * t + nx * w * k, p1[1] + dy * t + ny * w * k];
+  const b2 = bias + (1 - bias) * 0.55;
+  return smoothPath([p1, at(bias * 0.45, 0.78), at(bias, 1), at(b2, 0.74), p2, at(b2, -0.74), at(bias, -1), at(bias * 0.45, -0.78)]);
+}
+function limbAt(nodes, y) {
+  if (y <= nodes[0][0]) return { cx: nodes[0][1], hw: nodes[0][2] };
+  for (let i = 1; i < nodes.length; i++) if (y <= nodes[i][0]) {
+    const [y0, c0, w0] = nodes[i - 1], [y1, c1, w1] = nodes[i], t = (y - y0) / (y1 - y0);
+    return { cx: c0 + (c1 - c0) * t, hw: w0 + (w1 - w0) * t };
+  }
+  const l = nodes.at(-1); return { cx: l[1], hw: l[2] };
+}
+function limbPath(nodes, s) {
+  const X = v => 100 + s * v;
+  return smoothPath([...nodes.map(([y, cx, hw]) => [X(cx + hw), y]), ...[...nodes].reverse().map(([y, cx, hw]) => [X(cx - hw), y])]);
+}
+const rrPath = (x, y, w, h, r) => `M${x + r} ${y}h${w - 2 * r}a${r} ${r} 0 0 1 ${r} ${r}v${h - 2 * r}a${r} ${r} 0 0 1 ${-r} ${r}h${-(w - 2 * r)}a${r} ${r} 0 0 1 ${-r} ${-r}v${-(h - 2 * r)}a${r} ${r} 0 0 1 ${r} ${-r}Z`;
+
+function bodySilhouette(P) {
+  const X = v => 100 + v;
+  const side = s => [[s * P.neck, 46], [s * (P.neck + 2.5), 55], [s * (P.shoulderW - 9), 62], [s * (P.shoulderW - 3), 72],
+    [s * (P.chestW + 0.5), 100], [s * (P.chestW * 0.55 + P.waistW * 0.45), 130], [s * P.waistW, 158],
+    [s * (P.hipW * 0.97), 188], [s * P.hipW, 204], [s * (P.legCx * 0.7), 222]];
+  const L = side(-1), R = side(1).reverse();
+  const torso = smoothPath([...L, [0, 228], ...R].map(([x, y]) => [X(x), y]));
+  const parts = [torso, limbPath(P.arm, -1), limbPath(P.arm, 1), limbPath(P.leg, -1), limbPath(P.leg, 1)];
+  const hr = P.sex === 'f' ? 13.2 : 14.2;
+  return `<g fill="var(--body)">${parts.map(d => `<path d="${d}"/>`).join('')}
+    <rect x="${X(-P.neck)}" y="36" width="${2 * P.neck}" height="22" rx="4"/><ellipse cx="100" cy="25" rx="${hr}" ry="${hr * 1.24}"/></g>`;
+}
+function bodyMuscles(P, view) {
+  const X = v => 100 + v, out = [], add = (m, d) => out.push({ m, d });
+  const pt = (s, x, y) => [X(s * x), y];
+  for (const s of [-1, 1]) {
+    const arm = y => limbAt(P.arm, y), leg = y => limbAt(P.leg, y);
+    const ax = (y, k = 0) => { const a = arm(y); return [X(s * (a.cx + k * a.hw)), y]; };
+    const lx = (y, k = 0) => { const l = leg(y); return [X(s * (l.cx + k * l.hw)), y]; };
+    // Seitliche Schulter (vorne & hinten sichtbar)
+    add('sidedelt', smoothPath([pt(s, P.shoulderW - 8, 64), pt(s, P.shoulderW - 1.5, 76), pt(s, P.shoulderW + 0.3, 90), pt(s, P.shoulderW - 3.5, 105), pt(s, P.shoulderW - 5.5, 88)]));
+    const fh = arm(174).hw;
+    if (view === 'front') {
+      add('upperback', smoothPath([pt(s, P.neck - 0.5, 49), pt(s, P.neck + 7, 56), pt(s, P.shoulderW - 10, 62), pt(s, P.neck + 3, 61)]));
+      add('chest', smoothPath([pt(s, 1.6, 70), pt(s, P.chestW * 0.45, 65.5), pt(s, P.chestW - 5, 67), pt(s, P.chestW + 0.8, 82), pt(s, P.chestW - 1.5, 100),
+        pt(s, P.chestW * 0.62, 110 + (P.sex === 'f' ? 3 : 0)), pt(s, 1.6, 107)]));
+      add('frontdelt', smoothPath([pt(s, P.chestW - 5, 64.5), pt(s, P.shoulderW - 7.5, 66), pt(s, P.shoulderW - 4.5, 82), pt(s, P.shoulderW - 7, 104), pt(s, P.chestW + 1, 88)]));
+      add('biceps', lensPath(ax(90, 0.05), ax(148, -0.05), P.ua * 0.74, 0.55));
+      add('forearms', lensPath(ax(155, 0.5), ax(200, 0.25), fh * 0.42, 0.4));
+      add('forearms', lensPath(ax(162, -0.25), ax(216, -0.05), fh * 0.55, 0.35));
+      // Bauch: gerader Bauchmuskel + schräge Bauchmuskeln
+      const abW = Math.min(11.5, P.waistW * 0.4);
+      if (P.absBlocks) {
+        [[114, 129], [131, 146], [148, 163]].forEach(([y0, y1]) => add('abs', rrPath(s < 0 ? X(-abW) : X(0.9), y0, abW - 0.9, y1 - y0, 3.6)));
+        add('abs', smoothPath([pt(s, 0.9, 165), pt(s, abW - 0.5, 165), pt(s, abW * 0.8, 184), pt(s, 3.5, 198), pt(s, 0.9, 198)]));
+      } else add('abs', smoothPath([pt(s, 0.9, 115), pt(s, abW, 116), pt(s, abW + 0.8, 150), pt(s, abW * 0.85, 184), pt(s, 3.5, 198), pt(s, 0.9, 198)]));
+      add('abs', smoothPath([pt(s, abW + 2.4, 124), pt(s, P.chestW * 0.8, 115), pt(s, P.chestW * 0.45 + P.waistW * 0.55 - 1.5, 138), pt(s, P.waistW - 1.6, 160),
+        pt(s, P.waistW * 0.5 + P.hipW * 0.42, 186), pt(s, abW + 3.4, 196), pt(s, abW + 2.4, 160)]));
+      // Quadrizeps (3 sichtbare Köpfe)
+      add('quads', lensPath(lx(210, 0.42), lx(292, 0.52), leg(250).hw * 0.5, 0.45));
+      add('quads', lensPath(lx(204, -0.02), lx(288, 0.02), leg(245).hw * 0.44, 0.45));
+      add('quads', lensPath(lx(250, -0.5), lx(298, -0.22), leg(280).hw * 0.46, 0.55));
+      // Unterschenkel vorne
+      add('calves', lensPath(lx(310, 0.5), lx(360, 0.42), leg(330).hw * 0.38, 0.4));
+      add('calves', lensPath(lx(312, -0.5), lx(352, -0.4), leg(330).hw * 0.34, 0.4));
+    } else {
+      add('upperback', smoothPath([pt(s, P.chestW * 0.5 + 1.5, 76), pt(s, P.chestW + 0.5, 80), pt(s, P.chestW - 1, 98), pt(s, P.chestW * 0.6, 102), pt(s, P.chestW * 0.42, 90)]));
+      add('reardelt', smoothPath([pt(s, P.chestW - 4, 64), pt(s, P.shoulderW - 6.5, 67), pt(s, P.shoulderW - 3.5, 84), pt(s, P.shoulderW - 8, 102), pt(s, P.chestW + 0.5, 86)]));
+      add('lats', smoothPath([pt(s, P.chestW + 0.5, 95), pt(s, P.chestW * 0.55, 105), pt(s, 10, 126), pt(s, 7.5, 160), pt(s, P.waistW * 0.55, 178),
+        pt(s, P.waistW - 0.8, 160), pt(s, P.chestW - 1, 120)]));
+      add('lowerback', lensPath(pt(s, 5.6, 126), pt(s, 6.8, 200), 5.2, 0.6));
+      add('triceps', lensPath(ax(88, -0.15), ax(146, 0), P.ua * 0.72, 0.45));
+      add('triceps', lensPath(ax(90, 0.5), ax(128, 0.38), P.ua * 0.38, 0.45));
+      add('forearms', lensPath(ax(157, 0.35), ax(214, 0.1), fh * 0.6, 0.35));
+      add('glutes', smoothPath([pt(s, 1.2, 200), pt(s, P.hipW * 0.52, 192), pt(s, P.hipW - 2.5, 205), pt(s, P.hipW - 3, 226), pt(s, P.hipW * 0.55, 241), pt(s, 1.6, 238)]));
+      add('hams', lensPath(lx(242, 0.34), lx(300, 0.45), leg(268).hw * 0.5, 0.45));
+      add('hams', lensPath(lx(242, -0.34), lx(300, -0.42), leg(268).hw * 0.48, 0.45));
+      add('calves', lensPath(lx(305, -0.3), lx(352, -0.15), leg(325).hw * 0.52, 0.4));
+      add('calves', lensPath(lx(305, 0.32), lx(346, 0.22), leg(325).hw * 0.46, 0.4));
+    }
+  }
+  if (view === 'back') out.unshift({ m: 'upperback', d: smoothPath([[100, 45], [X(P.neck + 1.5), 50], [X(P.shoulderW - 12), 61], [X(P.chestW * 0.5), 72], [X(8), 100], [100, 122],
+    [X(-8), 100], [X(-P.chestW * 0.5), 72], [X(-(P.shoulderW - 12)), 61], [X(-(P.neck + 1.5)), 50]]) });
+  return out;
+}
+// Ganze Figur als SVG. vol = Wochenvolumen (Färbung) oder null (neutrale Vorschau)
+function bodySVG(P, view, vol, { interactive = true, W = P.W } = {}) {
+  const ms = bodyMuscles(P, view).map(({ m, d }) => {
+    let fill = 'var(--muscle)', op = 1;
+    if (vol) {
+      const v = vol[m] || 0, tg = effTarget(m), st = volStatus(v, tg);
+      fill = { none: 'var(--muscle)', low: 'var(--orange)', ok: 'var(--accent)', high: 'var(--blue)' }[st];
+      if (st === 'low') op = (0.45 + 0.55 * v / tg[0]).toFixed(2);
+    }
+    const foc = vol && isFocus(m);
+    return `<path d="${d}" ${interactive ? `data-act="openMuscle" data-m="${m}"` : ''} fill="${fill}" fill-opacity="${op}" stroke="${foc ? 'var(--text)' : 'var(--bg)'}" stroke-width="${foc ? 1.8 : P.sep.toFixed(2)}" stroke-linejoin="round"/>`;
+  }).join('');
+  const spine = view === 'back' ? `<path d="M100 126V204" stroke="var(--bg)" stroke-width="${P.sep.toFixed(2)}" opacity=".8"/>` : '';
+  return `<svg viewBox="${(100 - W).toFixed(1)} 6 ${(2 * W).toFixed(1)} 396" role="img" aria-label="Körper ${view === 'front' ? 'vorne' : 'hinten'}">${bodySilhouette(P)}${ms}${spine}</svg>`;
+}
+function bodyMap(vol) {
+  const P = bodyParams(bodySource());
+  return `<div class="bodymap"><div>${bodySVG(P, 'front', vol)}<div class="lbl">Vorne</div></div><div>${bodySVG(P, 'back', vol)}<div class="lbl">Hinten</div></div></div>
+    <div class="legend"><span><i style="background:var(--muscle)"></i>nichts</span><span><i style="background:var(--orange)"></i>unter Ziel</span>
+    <span><i style="background:var(--accent)"></i>im Ziel</span><span><i style="background:var(--blue)"></i>über Ziel</span><span><i style="border:2px solid var(--text)"></i>Fokus</span></div>
+    <button class="btn sm ghost block" style="margin-top:8px" data-act="bodyShape">🧍 Körperform anpassen</button>`;
+}
+
+/* ---- Körperform-Einstellungen ---- */
+function bodyShapeSheet() {
+  const b = bodyCfg();
+  openSheet(`<h2>🧍 Körperform</h2>
+    <div class="small muted">Die Muskelkarte passt sich deinem Körper an – automatisch aus deinen Daten oder per Körpertyp, plus Feinjustierung.</div>
+    <div id="bs_prev" class="bodymap" style="margin:12px auto 4px"></div>
+    <div class="seg" id="bs_mode">${[['auto', '📏 Aus meinen Daten'], ['preset', '🧍 Körpertyp']].map(([k, l]) => `<button class="${b.mode === k ? 'on' : ''}" data-act="bsMode" data-k="${k}">${l}</button>`).join('')}</div>
+    <div id="bs_body"></div>
+    <h3>Feinjustierung</h3>
+    ${BODY_SLIDERS.map(([k, l]) => `<label class="slider"><span>${l}</span><input type="range" min="80" max="125" step="1" data-bs="${k}" value="${Math.round((b.adj[k] ?? 1) * 100)}"><b id="bsv_${k}">${Math.round((b.adj[k] ?? 1) * 100)} %</b></label>`).join('')}
+    <label class="slider"><span>Definition</span><input type="range" min="-12" max="12" step="1" data-bs="bf" value="${-(b.bfAdj || 0)}"><b id="bsv_bf">${-(b.bfAdj || 0) > 0 ? '+' : ''}${-(b.bfAdj || 0)}</b></label>
+    <div class="small muted">Definition verschiebt das Körperfett für die Darstellung: mehr Definition = sichtbare Bauchmuskeln & schärfere Muskelkanten.</div>
+    <button class="btn block ghost" style="margin-top:8px" data-act="bsReset">Regler zurücksetzen</button>
+    <div id="bs_cmp"></div>
+    <div class="sheet-actions"><button class="btn primary" data-act="bsDone">Fertig</button></div>`);
+  renderBsBody(); renderBsPrev();
+}
+function renderBsPrev() {
+  const P = bodyParams(bodySource());
+  $('#bs_prev').innerHTML = `<div>${bodySVG(P, 'front', null, { interactive: false })}</div><div>${bodySVG(P, 'back', null, { interactive: false })}</div>`;
+}
+function renderBsBody() {
+  const b = bodyCfg(), el = $('#bs_body'); if (!el) return;
+  if (b.mode === 'preset') {
+    el.innerHTML = `<div class="grid2 presets">${Object.entries(BODY_PRESETS).map(([k, p]) => {
+      const P = bodyParams({ ...bodySourcePreset(k) }, false);
+      return `<button class="preset ${b.preset === k ? 'on' : ''}" data-act="bsPreset" data-k="${k}">${bodySVG(P, 'front', null, { interactive: false })}<span>${p.label}</span></button>`;
+    }).join('')}</div>`;
+    $('#bs_cmp').innerHTML = '';
+    return;
+  }
+  const src = bodySource(), st = S.settings;
+  const L = { shoulders: 'Schultern', chest: 'Brust', waist: 'Bauch', hip: 'Hüfte', arm: 'Oberarm', thigh: 'Oberschenkel', calf: 'Wade' };
+  const nEst = MEASURE_KEYS.filter(k => src.srcs[k] !== 'gemessen').length;
+  el.innerHTML = `<div class="card" style="margin:0">
+    <div class="small" style="margin-bottom:6px"><b>${st.sex === 'f' ? 'Weiblich' : 'Männlich'} · ${fmt(src.h)} cm · ${fmt(src.kg, 1)} kg${S.weights.length ? '' : ' (geschätzt)'} · KFA ${fmt(src.bf, 0)} % ${src.bfSrc === 'gemessen' ? '' : '(geschätzt)'}</b></div>
+    <div class="chips">${MEASURE_KEYS.map(k => `<span class="chip ${src.srcs[k] === 'gemessen' ? 'on2' : ''}">${L[k]} ${fmt(src.c[k], 0)} cm${src.srcs[k] === 'gemessen' ? ' ✓' : ' ~'}</span>`).join('')}</div>
+    <div class="small muted" style="margin-top:8px">✓ = gemessen, ~ = aus Größe & Gewicht geschätzt.${nEst ? ` Je mehr Maße du einträgst, desto genauer wird die Figur.` : ' Alles gemessen – top! 👌'}</div>
+    ${nEst ? '<button class="btn sm" style="margin-top:8px" data-act="addMeasure">📏 Maße eintragen</button>' : ''}
+    ${!st.height || !S.meta.onboarded ? '<div class="small muted" style="margin-top:6px">Tipp: Größe & Geschlecht unter „Mehr → Profil“ eintragen.</div>' : ''}
+  </div>`;
+  // Vergleich Start ↔ Jetzt
+  const first = bodySource('first'), changed = MEASURE_KEYS.some(k => Math.abs(first.c[k] - src.c[k]) > 0.5) || Math.abs(first.bf - src.bf) > 0.5;
+  $('#bs_cmp').innerHTML = changed ? `<h3>Entwicklung deiner Körperform</h3><div class="bodymap">
+    <div>${bodySVG(bodyParams(first), 'front', null, { interactive: false })}<div class="lbl">Start${first.date ? ' · ' + fmtDate(first.date) : ''} · ${fmt(first.kg, 1)} kg</div></div>
+    <div>${bodySVG(bodyParams(src), 'front', null, { interactive: false })}<div class="lbl">Jetzt${src.date ? ' · ' + fmtDate(src.date) : ''} · ${fmt(src.kg, 1)} kg</div></div></div>` : '';
+}
+function bodySourcePreset(k) {
+  const cfg = S.settings.body; S.settings.body = { ...bodyCfg(), mode: 'preset', preset: k };
+  try { return bodySource('latest', 'preset'); } finally { S.settings.body = cfg; }
+}
+function bodyCompareCard() {
+  if (bodyCfg().mode !== 'auto') return '';
+  const a = bodySource('first'), b = bodySource('latest');
+  if (!(MEASURE_KEYS.some(k => Math.abs(a.c[k] - b.c[k]) > 0.5) || Math.abs(a.bf - b.bf) > 0.5)) return '';
+  return `<div class="card"><div class="card-head"><h2>🧍 Körperform-Entwicklung</h2><button class="btn sm" data-act="bodyShape">Anpassen</button></div>
+    <div class="bodymap">
+      <div>${bodySVG(bodyParams(a), 'front', null, { interactive: false })}<div class="lbl">Start${a.date ? ' · ' + fmtDate(a.date) : ''}<br>${fmt(a.kg, 1)} kg</div></div>
+      <div>${bodySVG(bodyParams(b), 'front', null, { interactive: false })}<div class="lbl">Jetzt${b.date ? ' · ' + fmtDate(b.date) : ''}<br>${fmt(b.kg, 1)} kg</div></div>
+    </div><div class="small muted" style="margin-top:6px">Aus deinem Gewicht und deinen Körpermaßen berechnet.</div></div>`;
 }
 
 function progMuscles() {
@@ -1012,7 +1252,7 @@ function progBody() {
   const first = ws[0], last = ws.at(-1), rate = weightTrend();
   const bmi = last ? last.kg / (st.height / 100) ** 2 : null;
   const ms = [...S.measures].sort((a, b) => b.date.localeCompare(a.date));
-  const MF = [['waist', 'Bauch'], ['chest', 'Brust'], ['arm', 'Arm'], ['thigh', 'Oberschenkel'], ['hip', 'Hüfte'], ['bf', 'KFA %']];
+  const MF = [['waist', 'Bauch'], ['chest', 'Brust'], ['shoulders', 'Schultern'], ['arm', 'Arm'], ['thigh', 'Oberschenkel'], ['calf', 'Wade'], ['hip', 'Hüfte'], ['bf', 'KFA %']];
   const nxt = nextWeighSlot();
   return `
   <div class="card">
@@ -1036,6 +1276,8 @@ function progBody() {
     return `<div class="item"><div class="t"><b>${fmt(w.kg, 1)} kg</b><span>${fmtDate(w.date, { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' })}${w.note ? ' · ' + esc(w.note) : ''}</span></div>
       ${p ? `<span class="pill">${sgn(w.kg - p.kg)}</span>` : ''}<button class="x" data-act="delWeight" data-id="${w.id}">×</button></div>`;
   }).join('')}</div>` : ''}
+
+  ${bodyCompareCard()}
 
   <h3>Körpermaße</h3>
   <div class="card">
@@ -1277,7 +1519,7 @@ function weightSheet() {
 }
 function measureSheet() {
   const last = [...S.measures].sort((a, b) => b.date.localeCompare(a.date))[0] || {};
-  const F = [['waist', 'Bauch (cm)'], ['chest', 'Brust (cm)'], ['arm', 'Oberarm (cm)'], ['thigh', 'Oberschenkel (cm)'], ['hip', 'Hüfte (cm)'], ['bf', 'Körperfett (%)']];
+  const F = [['waist', 'Bauch (cm)'], ['chest', 'Brust (cm)'], ['shoulders', 'Schultern (cm)'], ['arm', 'Oberarm (cm)'], ['thigh', 'Oberschenkel (cm)'], ['calf', 'Wade (cm)'], ['hip', 'Hüfte (cm)'], ['bf', 'Körperfett (%)']];
   openSheet(`<h2>📏 Körpermaße</h2>
     <label class="f"><span>Datum</span><input id="m_date" type="date" value="${today()}" max="${today()}"></label>
     <div class="grid2">${F.map(([k, l]) => `<label class="f"><span>${l}</span><input id="m_${k}" inputmode="decimal" placeholder="${last[k] != null ? fmt(last[k], 1) : ''}"></label>`).join('')}</div>
@@ -1598,6 +1840,20 @@ function download(blob, name) {
 /* ---------- Actions ---------- */
 const A = {
   applyUpdate,
+  bodyShape: () => bodyShapeSheet(),
+  bsMode: el => {
+    S.settings.body = { ...bodyCfg(), mode: el.dataset.k }; save();
+    $$('#bs_mode button').forEach(b => b.classList.toggle('on', b.dataset.k === el.dataset.k));
+    renderBsBody(); renderBsPrev();
+  },
+  bsPreset: el => { S.settings.body = { ...bodyCfg(), mode: 'preset', preset: el.dataset.k }; save(); renderBsBody(); renderBsPrev(); },
+  bsReset: () => {
+    S.settings.body = { ...bodyCfg(), adj: {}, bfAdj: 0 }; save();
+    $$('[data-bs]').forEach(i => { i.value = i.dataset.bs === 'bf' ? 0 : 100; });
+    BODY_SLIDERS.forEach(([k]) => { $('#bsv_' + k).textContent = '100 %'; }); $('#bsv_bf').textContent = '0';
+    renderBsPrev();
+  },
+  bsDone: () => { closeSheet(); render(); },
   tab: el => { UI.tab = el.dataset.tab; closeSheet(); render(); window.scrollTo(0, 0); },
   closeSheet,
   water: el => { const d = today(); S.water[d] = Math.max(0, (S.water[d] || 0) + +el.dataset.ml); save(); render(); },
@@ -1651,7 +1907,7 @@ const A = {
   saveMeasure: () => {
     const m = { id: uid(), date: $('#m_date').value || today() };
     let any = false;
-    for (const k of ['waist', 'chest', 'arm', 'thigh', 'hip', 'bf']) { const v = num($('#m_' + k).value); if (v != null) { m[k] = v; any = true; } }
+    for (const k of ['waist', 'chest', 'shoulders', 'arm', 'thigh', 'calf', 'hip', 'bf']) { const v = num($('#m_' + k).value); if (v != null) { m[k] = v; any = true; } }
     if (!any) return toast('Mindestens einen Wert eingeben');
     S.measures.push(m); save(); closeSheet(); render(); toast('✓ Maße gespeichert');
   },
@@ -1874,6 +2130,12 @@ document.addEventListener('input', e => {
   else if (t.id === 'exq') renderExPicker();
   else if (t.id === 'fa_g') updateAmountPreview();
   else if (t.id === 'pr_title') prHint();
+  else if (t.dataset.bs) {
+    const b = bodyCfg(), k = t.dataset.bs, v = +t.value;
+    if (k === 'bf') { b.bfAdj = -v; $('#bsv_bf').textContent = (v > 0 ? '+' : '') + v; }
+    else { b.adj = { ...b.adj, [k]: v / 100 }; $('#bsv_' + k).textContent = v + ' %'; }
+    S.settings.body = b; save(); renderBsPrev();
+  }
   else if (t.dataset.bind && S.active) {
     if (t.dataset.bind === 'name') S.active.name = t.value;
     else S.active.entries[+t.dataset.e].sets[+t.dataset.s][t.dataset.bind] = num(t.value);

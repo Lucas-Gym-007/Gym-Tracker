@@ -23,7 +23,9 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 
 **💪 Progress: Muskeln (Wochenvolumen)**
 - Harte Sätze pro Woche für 15 Muskeln (Hauptmuskel = 1 Satz, Hilfsmuskel = ½ Satz)
-- **Körperkarte** vorne/hinten, eingefärbt nach Ziel (unter / im / über Ziel)
+- **Anatomische Körperkarte** vorne/hinten, eingefärbt nach Ziel (unter / im / über Ziel)
+- **Die Figur passt sich deinem Körper an**: automatisch aus Größe, Gewicht, Geschlecht und Körpermaßen (fehlende Maße werden geschätzt), oder per Körpertyp (Schlank / Athletisch / Muskulös / Kräftig), plus Regler für Schultern, Brust, Taille, Hüfte, Arme, Beine, Waden und Definition
+- **Körperform-Entwicklung**: Start ↔ Jetzt als Figuren nebeneinander
 - **Zielbereich pro Muskel frei einstellbar**, **Fokus-Muskeln** (Ziel +30 %)
 - **Schwachstellen-Analyse** (Ø der letzten 4 Trainingswochen) mit konkretem Vorschlag, z.B. „+6 Sätze/Woche, z.B. Seitheben“
 - Mit einem Tipp mehr Volumen in den Plan aufnehmen: Übung, Tag und Sätze wählen
