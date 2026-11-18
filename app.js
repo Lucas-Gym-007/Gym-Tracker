@@ -1597,6 +1597,7 @@ function download(blob, name) {
 
 /* ---------- Actions ---------- */
 const A = {
+  applyUpdate,
   tab: el => { UI.tab = el.dataset.tab; closeSheet(); render(); window.scrollTo(0, 0); },
   closeSheet,
   water: el => { const d = today(); S.water[d] = Math.max(0, (S.water[d] || 0) + +el.dataset.ml); save(); render(); },
@@ -1909,12 +1910,38 @@ setInterval(() => {
   if (new Date().getSeconds() === 0) checkWeighReminder();
 }, 1000);
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) { if (UI.foodDate > today()) UI.foodDate = today(); tickRest(); if (!sheetOpen()) render(); checkWeighReminder(); }
+  if (!document.hidden) { checkUpdate(); if (UI.foodDate > today()) UI.foodDate = today(); tickRest(); if (!sheetOpen()) render(); checkWeighReminder(); }
 });
+
+/* ---------- App-Updates ---------- */
+let lastUpdateCheck = 0;
+function setupUpdates() {
+  if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js').then(() => checkUpdate(true)).catch(() => {});
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data?.type === 'UPDATE_READY') showUpdateBar(); });
+  // neue sw.js übernommen → ebenfalls neu laden lassen
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) showUpdateBar(); });
+  try { if (sessionStorage.getItem('gt.updated')) { sessionStorage.removeItem('gt.updated'); setTimeout(() => toast('✨ App aktualisiert'), 400); } } catch {}
+}
+async function checkUpdate(force) {
+  if (!('serviceWorker' in navigator) || (!force && Date.now() - lastUpdateCheck < 60e3)) return;
+  lastUpdateCheck = Date.now();
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    reg.active?.postMessage({ type: 'CHECK' });
+    reg.update().catch(() => {});
+  } catch {}
+}
+function showUpdateBar() { $('#updbar').classList.remove('hidden'); }
+function applyUpdate() {
+  try { sessionStorage.setItem('gt.updated', '1'); } catch {}
+  location.reload();
+}
 
 /* ---------- Start ---------- */
 render();
 checkWeighReminder();
 loadPhotos();
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+setupUpdates();
 navigator.storage?.persist?.();
