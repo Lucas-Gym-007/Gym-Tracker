@@ -2,7 +2,7 @@
 
 Deine All-in-One-Fitness-App: **Essen, Training, Progress & PRs** in einer App, mit **automatischer Progression**.
 
-Tabs: **Heute** · **Essen** · **Training** · **Progress** (Körper / Fotos / PRs) · **Mehr**
+Tabs: **Heute** · **Essen** · **Training** · **Progress** (Körper / Muskeln / Fotos / PRs) · **Mehr**
 Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen Account. Alle Daten bleiben auf deinem Gerät.
 
 ## Features
@@ -21,6 +21,14 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - **Fortschrittsfotos** mit Vorher/Nachher-Vergleich (Abstand in Wochen und Gewichtsdifferenz). Sie werden verkleinert und nur auf dem Gerät gespeichert.
 - **Coach**: prüft dein Tempo beim Abnehmen oder Aufbauen und sagt dir, ob du mehr oder weniger essen solltest
 
+**💪 Progress: Muskeln (Wochenvolumen)**
+- Harte Sätze pro Woche für 15 Muskeln (Hauptmuskel = 1 Satz, Hilfsmuskel = ½ Satz)
+- **Körperkarte** vorne/hinten, eingefärbt nach Ziel (unter / im / über Ziel)
+- **Zielbereich pro Muskel frei einstellbar**, **Fokus-Muskeln** (Ziel +30 %)
+- **Schwachstellen-Analyse** (Ø der letzten 4 Trainingswochen) mit konkretem Vorschlag, z.B. „+6 Sätze/Woche, z.B. Seitheben“
+- Mit einem Tipp mehr Volumen in den Plan aufnehmen: Übung, Tag und Sätze wählen
+- Verlauf pro Muskel über 8 Wochen, dazu welche Übungen wie viel beitragen
+
 **🏆 Progress: PRs**
 - Kraft-PRs werden **automatisch** aus deinen Trainings erkannt (bester Satz und geschätztes 1RM pro Übung)
 - **Eigene PRs eintragen**: Gewicht × Wdh (z.B. 1RM-Test), Wiederholungen (max. Klimmzüge), Zeit (5 km Lauf, Plank), Distanz oder freier Text (erster Muscle-Up)
@@ -28,8 +36,10 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - PR-Timeline, „PRs diesen Monat“ und der letzte PR auf der Startseite
 
 **💪 Training**
-- Fertige Pläne: Push/Pull/Beine, Oberkörper/Unterkörper, Ganzkörper A/B, Zuhause mit Kurzhanteln. Die Startseite schlägt automatisch den nächsten Plan in der Rotation vor.
-- Eigene Pläne und Übungen anlegbar
+- **Plan-Baukasten**: Trainingsplan aus Trainingstagen zusammenstellen, Sätze pro Übung festlegen, als Rotation (x× pro Woche) oder mit festen Wochentagen. Das geplante Volumen pro Muskel siehst du live beim Bauen.
+- Vorlagen: Push/Pull/Beine, Oberkörper/Unterkörper, Ganzkörper A/B, Zuhause mit Kurzhanteln
+- Ein aktiver Plan: Die App schlägt automatisch den nächsten Tag vor, bei festen Wochentagen den heutigen
+- Eigene Übungen mit Haupt- und Hilfsmuskeln
 - Sätze mit Gewicht und Wiederholungen loggen, die Werte vom letzten Mal stehen daneben
 - **Automatische Progression (Double Progression):**
   - Jede Übung hat einen Wdh-Bereich (z.B. 6–10) und eine Steigerung (z.B. +2,5 kg)
