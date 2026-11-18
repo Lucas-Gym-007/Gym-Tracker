@@ -39,6 +39,17 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - Die App erkennt, ob der Eintrag ein neuer Bestwert ist, und zeigt den Verlauf pro Rekord als Diagramm
 - PR-Timeline, „PRs diesen Monat“ und der letzte PR auf der Startseite
 
+**🆕 Weitere Funktionen**
+- **Cardio-Log:** Laufen, Rad, Rudern, Schwimmen … mit Dauer, Distanz, Pace, Puls und kcal-Schätzung (MET). Cardio-Tage sind in der Wochenleiste markiert.
+- **Mini-Notizen** pro Übung direkt im Workout, z.B. „Sitz Stufe 4“
+- **Mahlzeit-Vorlagen:** eine Mahlzeit speichern und mit einem Tipp erneut eintragen
+- **Eigene Rezepte:** Zutaten mit Grammzahl, Nährwerte pro Portion werden berechnet
+- **Rückblick** für Woche, Monat und Jahr: Highlight, Training, Cardio, Ernährung, Körper, Muskeln, Rekorde, neue Abzeichen
+- **Kraft-Standards:** Level von Anfänger bis Elite für Bankdrücken, Kniebeugen, Kreuzheben, Schulterdrücken und Rudern, relativ zum Körpergewicht
+- **Abzeichen:** 30 Erfolge für Training, Streaks, Rekorde, Volumen, 100/140/180-kg-Club, Ernährung, Cardio und Fotos
+- **PR-Ziele mit Deadline:** Fortschrittsbalken, Restzeit und Prognose, ob du es rechtzeitig schaffst
+- **Foto mit Overlay:** Die Kamera blendet das letzte Foto halbtransparent ein, für exakt gleiche Posen, inklusive Selbstauslöser (3 s / 10 s)
+
 **💪 Training**
 - **Plan-Baukasten**: Trainingsplan aus Trainingstagen zusammenstellen, Sätze pro Übung festlegen, als Rotation (x× pro Woche) oder mit festen Wochentagen. Das geplante Volumen pro Muskel siehst du live beim Bauen.
 - Vorlagen: Push/Pull/Beine, Oberkörper/Unterkörper, Ganzkörper A/B, Zuhause mit Kurzhanteln
