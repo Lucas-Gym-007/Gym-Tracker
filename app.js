@@ -58,6 +58,43 @@ const FOOD_DB = [
   ['Vollmilchschokolade', 535, 7.7, 59, 30, '1 Riegel', 25], ['Chips', 536, 6, 53, 33, '1 Handvoll', 30],
   ['Cola', 42, 0, 10.6, 0, '1 Dose (330 ml)', 330], ['Orangensaft', 45, 0.7, 10, 0.2, '1 Glas', 250],
   ['Bier', 43, 0.5, 3.6, 0, '1 Flasche (0,5 l)', 500], ['Proteinriegel', 360, 33, 35, 12, '1 Riegel', 55],
+  // Kohlenhydrate & Brot
+  ['Vollkornnudeln (roh)', 350, 13, 64, 2.5, '1 Portion', 100], ['Basmatireis (roh)', 355, 8, 78, 1, '1 Portion', 75],
+  ['Couscous (roh)', 360, 12, 72, 1.5, '1 Portion', 70], ['Quinoa (roh)', 368, 14, 64, 6, '1 Portion', 70],
+  ['Wrap (Weizen)', 300, 8, 50, 7, '1 Wrap', 60], ['Knäckebrot', 360, 10, 66, 2.5, '1 Scheibe', 10],
+  ['Müsli (ungesüßt)', 365, 10, 60, 7, '1 Schale', 60], ['Cornflakes', 378, 7, 84, 0.9, '1 Schale', 40],
+  ['Brezel', 276, 8, 56, 1.8, '1 Brezel', 80], ['Croissant', 406, 8, 46, 21, '1 Croissant', 60],
+  // Fleisch, Fisch, Aufschnitt
+  ['Hähnchenschenkel ohne Haut (roh)', 119, 19.7, 0, 4.3, '1 Portion', 150], ['Schweinefilet (roh)', 105, 22, 0, 2, '1 Portion', 150],
+  ['Rindersteak Hüfte (roh)', 130, 22, 0, 4.5, '1 Steak', 200], ['Garnelen (roh)', 85, 19, 0, 1, '1 Portion', 150],
+  ['Seelachs (roh)', 80, 18, 0, 0.9, '1 Filet', 150], ['Kochschinken', 110, 20, 1, 3, '1 Scheibe', 20],
+  ['Putenaufschnitt', 105, 21, 1, 2, '1 Scheibe', 15], ['Salami', 420, 21, 1, 37, '1 Scheibe', 10],
+  // Milchprodukte
+  ['Feta', 264, 14, 4, 21, '1 Portion', 50], ['Harzer Käse', 120, 27, 0, 0.7, '1 Portion', 50],
+  ['Frischkäse', 235, 5.4, 4, 21.5, '1 EL', 20], ['Proteinpudding', 78, 10, 6.6, 1.3, '1 Becher', 200],
+  ['Naturjoghurt 3,5%', 64, 3.5, 4.7, 3.5, '1 Portion', 150], ['Haferdrink', 42, 1, 6.5, 1.5, '1 Glas', 250],
+  ['Sojadrink', 39, 3.3, 2.5, 1.8, '1 Glas', 250],
+  // Gemüse & Hülsenfrüchte
+  ['Mais (Dose)', 85, 2.9, 15, 1.2, '1 kleine Dose', 140], ['Kichererbsen (Dose)', 119, 7, 15, 2.5, '1 Dose', 240],
+  ['Paprika', 30, 1, 6, 0.3, '1 Paprika', 150], ['Tomate', 18, 0.9, 3, 0.2, '1 Tomate', 100],
+  ['Gurke', 15, 0.6, 2.2, 0.1, '½ Gurke', 200], ['Karotte', 41, 0.9, 9.6, 0.2, '1 Karotte', 80],
+  ['Spinat', 23, 2.9, 3.6, 0.4, '1 Portion', 100], ['Blattsalat', 15, 1.3, 2, 0.2, '1 Schale', 80],
+  ['Champignons', 22, 3, 3, 0.3, '1 Portion', 100], ['Zucchini', 17, 1.2, 3, 0.3, '1 Zucchini', 200],
+  // Obst, Nüsse, Süßes
+  ['Orange', 47, 0.9, 12, 0.1, '1 Orange', 150], ['Weintrauben', 69, 0.7, 18, 0.2, '1 Handvoll', 100],
+  ['Erdbeeren', 32, 0.7, 7.7, 0.3, '1 Schale', 150], ['Mango', 60, 0.8, 15, 0.4, '½ Mango', 150],
+  ['Kiwi', 61, 1.1, 15, 0.5, '1 Kiwi', 75], ['Datteln', 282, 2.5, 75, 0.4, '3 Stück', 25],
+  ['Walnüsse', 654, 15, 14, 65, '1 Handvoll', 30], ['Cashews', 553, 18, 30, 44, '1 Handvoll', 30],
+  ['Honig', 304, 0.3, 82, 0, '1 TL', 10], ['Marmelade', 250, 0.4, 60, 0.1, '1 EL', 20],
+  ['Nuss-Nougat-Creme', 539, 6.3, 57, 31, '1 Portion', 15], ['Gummibärchen', 343, 6.9, 77, 0.1, '1 Handvoll', 30],
+  ['Vanilleeis', 207, 3.5, 24, 11, '1 Kugel', 50],
+  // Gerichte & Fast Food
+  ['Pommes', 312, 3.4, 41, 15, '1 Portion', 150], ['Burger', 257, 13, 22, 13, '1 Burger', 220],
+  ['Currywurst mit Soße', 220, 9, 9, 16, '1 Portion', 250], ['Lasagne', 132, 7, 12, 6, '1 Portion', 350],
+  ['Spaghetti Bolognese', 130, 6.5, 16, 4.5, '1 Teller', 400], ['Sushi (Maki)', 145, 4, 28, 1.5, '8 Stück', 200],
+  // Getränke
+  ['Energy Drink', 46, 0, 11, 0, '1 Dose', 250], ['Rotwein', 85, 0.1, 2.6, 0, '1 Glas', 200],
+  ['Apfelschorle', 24, 0, 5.5, 0, '1 Flasche (0,5 l)', 500], ['Cappuccino', 40, 2.5, 3.5, 1.6, '1 Tasse', 200],
 ].map(([name, kcal, p, c, f, pl, pg]) => ({ name, kcal, p, c, f, portion: { l: pl, g: pg } }));
 
 /* Übungen: Wdh-Bereich (Double Progression), Steigerung in kg, Ziel-Sätze, Pause in s */
@@ -83,13 +120,32 @@ const DEFAULT_EXERCISES = [
   ['curl', 'Bizepscurls (KH)', 'Arme', 8, 12, 1, 3, 75, false, 10],
   ['pushdown', 'Trizepsdrücken (Kabel)', 'Arme', 10, 15, 2.5, 3, 75, false, 20],
   ['crunch', 'Kabel-Crunches', 'Bauch', 10, 15, 5, 3, 60, false, 25],
+  ['hanging_leg', 'Beinheben hängend', 'Bauch', 8, 15, 2.5, 3, 60, false, 0],
+  ['db_press', 'Bankdrücken (KH)', 'Brust', 8, 12, 2, 3, 120, false, 20],
+  ['pushup', 'Liegestütze', 'Brust', 10, 20, 2.5, 3, 60, false, 0],
+  ['db_row', 'Kurzhantelrudern', 'Rücken', 8, 12, 2, 3, 90, false, 20],
+  ['db_shoulder', 'Schulterdrücken (KH)', 'Schultern', 8, 12, 2, 3, 90, false, 12],
+  ['goblet', 'Goblet Squat', 'Beine', 8, 12, 2, 3, 90, false, 16],
+  ['lunge', 'Ausfallschritte (KH)', 'Beine', 8, 12, 2, 3, 90, false, 10],
+  ['hammer', 'Hammercurls', 'Arme', 8, 12, 1, 3, 60, false, 10],
+  ['frenchpress', 'French Press (SZ)', 'Arme', 8, 12, 2.5, 3, 75, false, 20],
 ].map(([id, name, muscle, repMin, repMax, inc, sets, rest, barbell, start]) => ({ id, name, muscle, repMin, repMax, inc, sets, rest, barbell, start }));
 
 const DEFAULT_ROUTINES = [
-  { id: 'push', name: 'Push (Brust, Schultern, Trizeps)', exIds: ['bench', 'ohp', 'incline_db', 'lateral', 'pushdown'] },
-  { id: 'pull', name: 'Pull (Rücken, Bizeps)', exIds: ['deadlift', 'pullup', 'row', 'facepull', 'curl'] },
-  { id: 'legs', name: 'Beine', exIds: ['squat', 'rdl', 'legpress', 'legcurl', 'calf'] },
+  { id: 'push', group: 'ppl', name: 'Push (Brust, Schultern, Trizeps)', exIds: ['bench', 'ohp', 'incline_db', 'lateral', 'pushdown'] },
+  { id: 'pull', group: 'ppl', name: 'Pull (Rücken, Bizeps)', exIds: ['deadlift', 'pullup', 'row', 'facepull', 'curl'] },
+  { id: 'legs', group: 'ppl', name: 'Beine', exIds: ['squat', 'rdl', 'legpress', 'legcurl', 'calf'] },
+  { id: 'upper', group: 'ul', name: 'Oberkörper', exIds: ['bench', 'row', 'ohp', 'latpull', 'curl', 'pushdown'] },
+  { id: 'lower', group: 'ul', name: 'Unterkörper', exIds: ['squat', 'rdl', 'legpress', 'legcurl', 'calf', 'hanging_leg'] },
+  { id: 'fb_a', group: 'fb', name: 'Ganzkörper A', exIds: ['squat', 'bench', 'row', 'lateral', 'pushdown'] },
+  { id: 'fb_b', group: 'fb', name: 'Ganzkörper B', exIds: ['deadlift', 'ohp', 'latpull', 'lunge', 'curl'] },
+  { id: 'home', group: 'home', name: 'Ganzkörper Zuhause (KH)', exIds: ['goblet', 'db_press', 'db_row', 'db_shoulder', 'lunge', 'pushup', 'hammer'] },
 ];
+const ROUTINE_GROUPS = {
+  ppl: 'Push / Pull / Beine · 3–6× pro Woche', ul: 'Oberkörper / Unterkörper · 4× pro Woche',
+  fb: 'Ganzkörper · 2–3× pro Woche', home: 'Zuhause mit Kurzhanteln', own: 'Eigene Pläne',
+};
+const SEED_V = 2; // Version der Standard-Übungen/-Pläne (für Updates bestehender Daten)
 
 const DEFAULTS = () => ({
   v: 1,
@@ -102,7 +158,7 @@ const DEFAULTS = () => ({
   exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
   routines: DEFAULT_ROUTINES.map(r => ({ ...r, exIds: [...r.exIds] })),
   workouts: [], active: null,
-  meta: { onboarded: false, notifiedSlot: null },
+  meta: { onboarded: false, notifiedSlot: null, seedV: SEED_V },
 });
 
 /* ---------- State ---------- */
@@ -116,7 +172,16 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return d;
     const s = JSON.parse(raw);
-    return { ...d, ...s, settings: { ...d.settings, ...s.settings }, meta: { ...d.meta, ...s.meta } };
+    const st = { ...d, ...s, settings: { ...d.settings, ...s.settings }, meta: { ...d.meta, seedV: 1, ...s.meta } };
+    if (st.meta.seedV < SEED_V) { // neue Standard-Übungen & -Pläne ergänzen, ohne Eigenes zu überschreiben
+      for (const e of DEFAULT_EXERCISES) if (!st.exercises.some(x => x.id === e.id)) st.exercises.push({ ...e });
+      for (const r of DEFAULT_ROUTINES) {
+        const ex = st.routines.find(x => x.id === r.id);
+        if (ex) ex.group = ex.group || r.group; else st.routines.push({ ...r, exIds: [...r.exIds] });
+      }
+      st.meta.seedV = SEED_V;
+    }
+    return st;
   } catch (e) { console.warn('Laden fehlgeschlagen', e); return d; }
 }
 function save() {
@@ -334,9 +399,10 @@ VIEWS.today = () => {
   const lastW = [...S.workouts].sort((a, b) => b.start - a.start)[0];
   const nextR = (() => { // nächster Plan in der Rotation
     if (!S.routines.length) return null;
-    if (!lastW?.routineId) return S.routines[0];
-    const i = S.routines.findIndex(r => r.id === lastW.routineId);
-    return S.routines[(i + 1) % S.routines.length];
+    const last = lastW?.routineId && S.routines.find(r => r.id === lastW.routineId);
+    if (!last) return S.routines[0];
+    const grp = S.routines.filter(r => (r.group || 'own') === (last.group || 'own'));
+    return grp[(grp.indexOf(last) + 1) % grp.length];
   })();
   const recent = S.weights.slice().sort((a, b) => a.date.localeCompare(b.date)).slice(-10);
 
@@ -446,12 +512,14 @@ function trainOverview() {
   <h1>Training</h1>
   <div class="sub">Pläne starten, Sätze loggen – die App sagt dir, wann du steigern musst.</div>
 
-  <h3>Trainingspläne</h3>
-  <div class="list">
-    ${S.routines.map(r => `<div class="item"><div class="t"><b>${esc(r.name)}</b><span>${r.exIds.map(id => esc(exById(id)?.name)).filter(Boolean).join(', ')}</span></div>
+  ${Object.entries(ROUTINE_GROUPS).map(([g, label]) => {
+    const rs = S.routines.filter(r => (r.group || 'own') === g);
+    return rs.length ? `<h3>${label}</h3><div class="list">
+    ${rs.map(r => `<div class="item"><div class="t"><b>${esc(r.name)}</b><span>${r.exIds.map(id => esc(exById(id)?.name)).filter(Boolean).join(', ')}</span></div>
       <button class="btn sm ghost" data-act="editRoutine" data-id="${r.id}">✎</button>
       <button class="btn sm primary" data-act="startWorkout" data-id="${r.id}">Start</button></div>`).join('')}
-  </div>
+  </div>` : '';
+  }).join('')}
   <div class="row" style="margin-top:8px">
     <button class="btn grow" data-act="editRoutine">+ Neuer Plan</button>
     <button class="btn grow" data-act="startWorkout">Freies Training</button>
@@ -557,6 +625,17 @@ VIEWS.body = () => {
       ${p ? `<span class="pill">${sgn(w.kg - p.kg)}</span>` : ''}<button class="x" data-act="delWeight" data-id="${w.id}">×</button></div>`;
   }).join('')}</div>` : ''}
 
+  <h3>Fortschrittsfotos</h3>
+  <div class="card">
+    <div class="card-head"><h2>📸 Fotos</h2><div class="row">
+      ${PH.list.length >= 2 ? '<button class="btn sm" data-act="photoCompare">⇆ Vergleich</button>' : ''}
+      <button class="btn sm primary" data-act="addPhoto">+ Foto</button></div></div>
+    ${PH.list.length ? `<div class="photos">${PH.list.map(p => `<button class="ph" data-act="openPhoto" data-id="${p.id}">
+      <img src="${p.url}" alt="" loading="lazy"><span>${fmtDate(p.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}${p.kg ? ` · ${fmt(p.kg, 1)} kg` : ''}</span></button>`).join('')}</div>`
+    : `<div class="empty small">${PH.ready ? 'Mach alle 2–4 Wochen ein Foto – gleiches Licht, gleiche Pose. Im Vergleich siehst du Fortschritt, den Waage & Spiegel nicht zeigen.' : 'Lade Fotos …'}</div>`}
+    <div class="small muted" style="margin-top:8px">🔒 Fotos bleiben nur auf diesem Gerät und sind nicht im JSON-Backup enthalten.</div>
+  </div>
+
   <h3>Körpermaße</h3>
   <div class="card">
     <div class="card-head"><h2>📏 Maße</h2><button class="btn sm" data-act="addMeasure">+ Messen</button></div>
@@ -635,11 +714,97 @@ VIEWS.more = () => {
       <button class="btn grow" data-act="exportData">⬇ Backup exportieren</button>
       <button class="btn grow" data-act="importData">⬆ Backup laden</button>
     </div>
-    <input type="file" id="importFile" accept="application/json,.json" class="hidden">
     <button class="btn block ghost danger" style="margin-top:8px" data-act="resetAll">Alle Daten löschen</button>
   </div>
   <div class="small muted" style="text-align:center">Gym Tracker · ${S.workouts.length} Trainings · ${S.foods.length} Essens-Einträge · ${S.weights.length} Wiegungen</div>`;
 };
+
+/* ---------- Fortschrittsfotos (IndexedDB, nur lokal) ---------- */
+const PH = { list: [], ready: false }; // {id, date, kg, ts, url}
+let _db = null;
+function idb() {
+  if (_db) return _db;
+  return (_db = new Promise((res, rej) => {
+    const r = indexedDB.open('gymtracker-photos', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('photos', { keyPath: 'id' });
+    r.onsuccess = () => res(r.result); r.onerror = () => { _db = null; rej(r.error); };
+  }));
+}
+async function idbTx(mode, fn) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('photos', mode), req = fn(tx.objectStore('photos'));
+    tx.oncomplete = () => res(req?.result); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+  });
+}
+async function loadPhotos() {
+  try {
+    const all = await idbTx('readonly', st => st.getAll());
+    PH.list.forEach(p => URL.revokeObjectURL(p.url));
+    PH.list = all.sort((a, b) => b.date.localeCompare(a.date) || b.ts - a.ts)
+      .map(p => ({ id: p.id, date: p.date, kg: p.kg, ts: p.ts, url: URL.createObjectURL(p.blob) }));
+  } catch (e) { console.warn('Fotos nicht ladbar', e); }
+  PH.ready = true;
+  if (UI.tab === 'body' && !sheetOpen()) render();
+}
+async function resizeImage(file, max = 1280) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image(); img.src = url; await img.decode();
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
+  } finally { URL.revokeObjectURL(url); }
+}
+function weightAt(date) { // Gewicht am/vor dem Datum (sonst das nächste danach)
+  const ws = [...S.weights].sort((a, b) => a.date.localeCompare(b.date));
+  return (ws.filter(w => w.date <= date).at(-1) || ws.find(w => w.date > date))?.kg ?? null;
+}
+async function addPhotos(files) {
+  toast('📸 Speichere Foto …');
+  let n = 0;
+  for (const f of files) {
+    try {
+      const blob = await resizeImage(f);
+      let date = f.lastModified ? ymd(new Date(f.lastModified)) : today();
+      if (date > today()) date = today();
+      await idbTx('readwrite', st => st.put({ id: uid(), date, kg: weightAt(date), ts: Date.now(), blob }));
+      n++;
+    } catch (e) { console.warn(e); }
+  }
+  await loadPhotos();
+  toast(n ? `✓ ${n} Foto${n > 1 ? 's' : ''} gespeichert` : '⚠️ Foto konnte nicht gespeichert werden');
+}
+function photoSheet(id) {
+  const p = PH.list.find(x => x.id === id); if (!p) return;
+  openSheet(`<h2>${fmtDate(p.date, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</h2>
+    <img class="ph-full" src="${p.url}" alt="">
+    <div class="grid2" style="margin-top:10px">
+      <label class="f"><span>Datum</span><input id="ph_date" type="date" value="${p.date}" max="${today()}"></label>
+      <label class="f"><span>Gewicht (kg)</span><input id="ph_kg" inputmode="decimal" value="${p.kg != null ? fmt(p.kg, 1) : ''}"></label>
+    </div>
+    <div class="sheet-actions"><button class="btn danger" data-act="delPhoto" data-id="${p.id}">Löschen</button>
+      ${PH.list.length > 1 ? `<button class="btn" data-act="photoCompare" data-b="${p.id}">⇆ Vergleich</button>` : ''}
+      <button class="btn primary" data-act="savePhoto" data-id="${p.id}">Speichern</button></div>`);
+}
+function compareSheet(aId, bId) {
+  const old = PH.list.at(-1), neu = PH.list[0];
+  const a = PH.list.find(x => x.id === aId) || old, b = PH.list.find(x => x.id === bId) || neu;
+  const opts = sel => PH.list.map(p => `<option value="${p.id}" ${p.id === sel.id ? 'selected' : ''}>${fmtDate(p.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}${p.kg ? ` · ${fmt(p.kg, 1)} kg` : ''}</option>`).join('');
+  const days = daysBetween(a.date, b.date), dkg = a.kg != null && b.kg != null ? b.kg - a.kg : null;
+  openSheet(`<h2>⇆ Vorher / Nachher</h2>
+    <div class="cmp">
+      <div><img src="${a.url}" alt=""><select id="cmp_a">${opts(a)}</select></div>
+      <div><img src="${b.url}" alt=""><select id="cmp_b">${opts(b)}</select></div>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="stat"><b>${Math.abs(days) >= 14 ? fmt(Math.abs(days) / 7) + ' Wochen' : Math.abs(days) + ' Tage'}</b><span>Abstand</span></div>
+      <div class="stat"><b>${dkg != null ? sgn(dkg) + ' kg' : '–'}</b><span>Gewicht</span></div>
+    </div>
+    <div class="sheet-actions"><button class="btn" data-act="closeSheet">Schließen</button></div>`);
+}
 
 /* ---------- Render ---------- */
 function render() {
@@ -1104,7 +1269,31 @@ const A = {
   downloadIcs,
   exportData: () => download(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }), `gym-tracker-backup-${today()}.json`),
   importData: () => $('#importFile').click(),
-  resetAll: () => { if (confirm('Wirklich ALLE Daten löschen? Das kann nicht rückgängig gemacht werden.') && confirm('Ganz sicher?')) { S = DEFAULTS(); save(); UI.tab = 'today'; render(); } },
+  resetAll: async () => {
+    if (!(confirm('Wirklich ALLE Daten löschen (inkl. Fotos)? Das kann nicht rückgängig gemacht werden.') && confirm('Ganz sicher?'))) return;
+    S = DEFAULTS(); save(); UI.tab = 'today';
+    try { await idbTx('readwrite', st => st.clear()); } catch {}
+    await loadPhotos(); render();
+  },
+  addPhoto: () => $('#photoFile').click(),
+  openPhoto: el => photoSheet(el.dataset.id),
+  photoCompare: el => compareSheet(null, el.dataset.b),
+  savePhoto: async el => {
+    const id = el.dataset.id, date = $('#ph_date').value || today();
+    let kg = num($('#ph_kg').value);
+    try {
+      const rec = await idbTx('readonly', st => st.get(id));
+      // Datum geändert, Gewicht nicht angefasst → Gewicht von diesem Tag übernehmen
+      if (date !== rec.date && (kg == null || Math.abs(kg - (rec.kg ?? NaN)) < 0.05)) kg = weightAt(date);
+      await idbTx('readwrite', st => st.put({ ...rec, date, kg }));
+    } catch { return toast('⚠️ Speichern fehlgeschlagen'); }
+    closeSheet(); await loadPhotos(); toast('✓ Gespeichert');
+  },
+  delPhoto: async el => {
+    if (!confirm('Foto löschen?')) return;
+    try { await idbTx('readwrite', st => st.delete(el.dataset.id)); } catch {}
+    closeSheet(); await loadPhotos();
+  },
 };
 
 function readSettingsForm() {
@@ -1138,6 +1327,8 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'r_add' && e.target.value) { RC.exIds.push(e.target.value); renderRoutineSheet(); }
+  if (e.target.id === 'photoFile' && e.target.files.length) { addPhotos([...e.target.files]); e.target.value = ''; }
+  if (e.target.id === 'cmp_a' || e.target.id === 'cmp_b') compareSheet($('#cmp_a').value, $('#cmp_b').value);
   if (e.target.id === 'importFile' && e.target.files[0]) {
     e.target.files[0].text().then(txt => {
       const d = JSON.parse(txt);
@@ -1167,5 +1358,6 @@ document.addEventListener('visibilitychange', () => {
 /* ---------- Start ---------- */
 render();
 checkWeighReminder();
+loadPhotos();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 navigator.storage?.persist?.();

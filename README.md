@@ -7,7 +7,7 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 
 **🍽️ Ernährung**
 - Kalorien, Protein, Kohlenhydrate und Fett pro Mahlzeit loggen
-- Eingebaute Lebensmittel-Datenbank mit Portionsgrößen (Haferflocken, Skyr, Hähnchen …)
+- Eingebaute Lebensmittel-Datenbank mit ~110 Lebensmitteln und Portionsgrößen (Grundnahrungsmittel, Obst, Gemüse, Fast Food, Getränke …)
 - Online-Suche und Barcode-Scanner über Open Food Facts (Kamera-Scan in Chrome/Android)
 - Favoriten, „Zuletzt gegessen“ zum Loggen mit einem Tipp, Vortag kopieren
 - Wasser-Tracker
@@ -16,10 +16,12 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - Wöchentliche Wiege-Erinnerung: Banner in der App, Benachrichtigung und **Kalender-Termin (.ics)**, der jede Woche klingelt
 - Gewichtsverlauf mit Diagramm, Zielgewicht, kg/Woche-Trend und Prognose, wann du dein Ziel erreichst
 - Körpermaße (Bauch, Brust, Arm …, KFA)
+- **Fortschrittsfotos** mit Vorher/Nachher-Vergleich (Abstand in Wochen und Gewichtsdifferenz). Sie werden verkleinert und nur auf dem Gerät gespeichert.
 - **Coach**: prüft dein Tempo beim Abnehmen oder Aufbauen und sagt dir, ob du mehr oder weniger essen solltest
 
 **💪 Training**
-- Fertige Pläne (Push/Pull/Beine), eigene Pläne und Übungen anlegbar
+- Fertige Pläne: Push/Pull/Beine, Oberkörper/Unterkörper, Ganzkörper A/B, Zuhause mit Kurzhanteln. Die Startseite schlägt automatisch den nächsten Plan in der Rotation vor.
+- Eigene Pläne und Übungen anlegbar
 - Sätze mit Gewicht und Wiederholungen loggen, die Werte vom letzten Mal stehen daneben
 - **Automatische Progression (Double Progression):**
   - Jede Übung hat einen Wdh-Bereich (z.B. 6–10) und eine Steigerung (z.B. +2,5 kg)
