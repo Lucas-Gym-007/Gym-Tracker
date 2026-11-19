@@ -2,7 +2,7 @@
 
 Deine All-in-One-Fitness-App: **Essen, Training, Progress & PRs** in einer App, mit **automatischer Progression**.
 
-Design: tiefschwarz mit Champagner-Gold, clean und minimal. **Heute** zeigt die Gesamtübersicht: Kalorien- und Makro-Ring, Schnellaktionen, Wochenleiste, Training, Gewicht, Wasser, Muskeln, Rekorde, Fotos, Maße, Streak und Coach.
+Design: tiefschwarz und clean, die Akzentfarbe ist wählbar (Gold, Platin, Roségold, Smaragd, Saphir, Amethyst, Onyx). **Heute** zeigt die Gesamtübersicht: Kalorien- und Makro-Ring, Schnellaktionen, Wochenleiste, Training, Gewicht, Wasser, Muskeln, Rekorde, Fotos, Maße, Streak und Coach.
 
 Tabs: **Heute** · **Essen** · **Training** · **Progress** (Körper / Muskeln / Fotos / PRs) · **Mehr**
 Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen Account. Alle Daten bleiben auf deinem Gerät.
@@ -11,7 +11,7 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 
 **🍽️ Ernährung**
 - Kalorien, Protein, Kohlenhydrate und Fett pro Mahlzeit loggen
-- Eingebaute Lebensmittel-Datenbank mit ~110 Lebensmitteln und Portionsgrößen (Grundnahrungsmittel, Obst, Gemüse, Fast Food, Getränke …)
+- Eingebaute Lebensmittel-Datenbank mit 312 Lebensmitteln und Gerichten in 15 Kategorien, mit Portionsgrößen. Kategorien kannst du durchstöbern. Die Suche ist tolerant: Umlaute sind egal, „chicken“ findet Hähnchen, „pasta“ findet Nudeln.
 - Online-Suche und Barcode-Scanner über Open Food Facts (Kamera-Scan in Chrome/Android)
 - Favoriten, „Zuletzt gegessen“ zum Loggen mit einem Tipp, Vortag kopieren
 - Wasser-Tracker

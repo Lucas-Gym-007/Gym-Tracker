@@ -32,70 +32,213 @@ const MUSCLES = ['Brust', 'Rücken', 'Schultern', 'Beine', 'Arme', 'Bauch', 'Gan
 const ACTIVITY = [[1.2, 'Kaum aktiv (Bürojob, kein Sport)'], [1.375, 'Leicht aktiv (1–2× Sport)'], [1.55, 'Aktiv (3–4× Sport)'], [1.725, 'Sehr aktiv (5–6× Sport)'], [1.9, 'Extrem aktiv (körperl. Arbeit + Sport)']];
 const GOALS = { cut: 'Abnehmen (Defizit)', maintain: 'Gewicht halten', bulk: 'Muskelaufbau (Überschuss)' };
 
-/* Nährwerte pro 100 g (Richtwerte) + typische Portion */
-const FOOD_DB = [
-  ['Haferflocken', 372, 13.5, 58.7, 7, '1 Portion', 50], ['Reis (gekocht)', 130, 2.7, 28, 0.3, '1 Portion', 150],
-  ['Reis (roh)', 350, 7, 78, 0.6, '1 Portion', 75], ['Nudeln (gekocht)', 158, 5.8, 31, 0.9, '1 Teller', 200],
-  ['Nudeln (roh)', 359, 12.5, 71, 1.5, '1 Portion', 100], ['Kartoffeln (gekocht)', 77, 2, 17, 0.1, '1 Portion', 200],
-  ['Süßkartoffel (gekocht)', 86, 1.6, 20, 0.1, '1 Portion', 200], ['Hähnchenbrust (roh)', 110, 23, 0, 1.5, '1 Filet', 150],
-  ['Putenbrust (roh)', 107, 24, 0, 1, '1 Filet', 150], ['Rinderhack (roh)', 254, 17.2, 0, 20, '1 Packung', 400],
-  ['Rinderhack mager 5% (roh)', 137, 21, 0, 5, '1 Portion', 125], ['Lachs (roh)', 208, 20, 0, 13, '1 Filet', 125],
-  ['Thunfisch (Dose, Wasser)', 116, 26, 0, 1, '1 Dose', 150], ['Ei', 155, 13, 1.1, 11, '1 Ei (M)', 60],
-  ['Eiklar', 52, 11, 0.7, 0.2, '1 Eiklar', 33], ['Magerquark', 67, 12, 4, 0.2, '1 Becher', 250],
-  ['Skyr', 63, 11, 4, 0.2, '1 Becher', 150], ['Griechischer Joghurt 10%', 133, 5, 4, 10, '1 Portion', 150],
-  ['Hüttenkäse', 98, 11, 3.4, 4.3, '1 Becher', 200], ['Milch 1,5%', 47, 3.4, 4.9, 1.5, '1 Glas', 250],
-  ['Whey Protein', 380, 78, 6, 5, '1 Scoop', 30], ['Vollkornbrot', 220, 8, 41, 1.5, '1 Scheibe', 50],
-  ['Toastbrot', 265, 8, 49, 3.5, '1 Scheibe', 25], ['Brötchen', 270, 9, 53, 2, '1 Brötchen', 60],
-  ['Reiswaffeln', 387, 8, 81, 3, '1 Stück', 8], ['Banane', 89, 1.1, 23, 0.3, '1 Banane', 120],
-  ['Apfel', 52, 0.3, 14, 0.2, '1 Apfel', 150], ['Beeren (TK)', 45, 1, 9, 0.4, '1 Portion', 100],
-  ['Brokkoli', 34, 2.8, 7, 0.4, '1 Portion', 150], ['Gemüsemix (TK)', 40, 2, 6, 0.4, '1 Portion', 200],
-  ['Avocado', 160, 2, 9, 15, '½ Avocado', 70], ['Linsen (gekocht)', 116, 9, 20, 0.4, '1 Portion', 150],
-  ['Kidneybohnen (Dose)', 104, 7, 16, 0.6, '1 Dose', 250], ['Tofu natur', 120, 12, 2, 7, '1 Portion', 100],
-  ['Erdnussbutter', 588, 25, 20, 50, '1 EL', 15], ['Mandeln', 579, 21, 22, 50, '1 Handvoll', 30],
-  ['Olivenöl', 884, 0, 0, 100, '1 EL', 10], ['Butter', 741, 0.7, 0.6, 83, '1 Portion', 10],
-  ['Gouda', 356, 25, 0, 27, '1 Scheibe', 25], ['Mozzarella light', 160, 19, 1, 9, '1 Kugel', 125],
-  ['Pizza (TK)', 250, 10, 30, 10, '1 Pizza', 350], ['Döner Kebab', 215, 11, 20, 10, '1 Döner', 400],
-  ['Vollmilchschokolade', 535, 7.7, 59, 30, '1 Riegel', 25], ['Chips', 536, 6, 53, 33, '1 Handvoll', 30],
-  ['Cola', 42, 0, 10.6, 0, '1 Dose (330 ml)', 330], ['Orangensaft', 45, 0.7, 10, 0.2, '1 Glas', 250],
-  ['Bier', 43, 0.5, 3.6, 0, '1 Flasche (0,5 l)', 500], ['Proteinriegel', 360, 33, 35, 12, '1 Riegel', 55],
-  // Kohlenhydrate & Brot
-  ['Vollkornnudeln (roh)', 350, 13, 64, 2.5, '1 Portion', 100], ['Basmatireis (roh)', 355, 8, 78, 1, '1 Portion', 75],
-  ['Couscous (roh)', 360, 12, 72, 1.5, '1 Portion', 70], ['Quinoa (roh)', 368, 14, 64, 6, '1 Portion', 70],
-  ['Wrap (Weizen)', 300, 8, 50, 7, '1 Wrap', 60], ['Knäckebrot', 360, 10, 66, 2.5, '1 Scheibe', 10],
-  ['Müsli (ungesüßt)', 365, 10, 60, 7, '1 Schale', 60], ['Cornflakes', 378, 7, 84, 0.9, '1 Schale', 40],
-  ['Brezel', 276, 8, 56, 1.8, '1 Brezel', 80], ['Croissant', 406, 8, 46, 21, '1 Croissant', 60],
-  // Fleisch, Fisch, Aufschnitt
-  ['Hähnchenschenkel ohne Haut (roh)', 119, 19.7, 0, 4.3, '1 Portion', 150], ['Schweinefilet (roh)', 105, 22, 0, 2, '1 Portion', 150],
-  ['Rindersteak Hüfte (roh)', 130, 22, 0, 4.5, '1 Steak', 200], ['Garnelen (roh)', 85, 19, 0, 1, '1 Portion', 150],
-  ['Seelachs (roh)', 80, 18, 0, 0.9, '1 Filet', 150], ['Kochschinken', 110, 20, 1, 3, '1 Scheibe', 20],
-  ['Putenaufschnitt', 105, 21, 1, 2, '1 Scheibe', 15], ['Salami', 420, 21, 1, 37, '1 Scheibe', 10],
-  // Milchprodukte
-  ['Feta', 264, 14, 4, 21, '1 Portion', 50], ['Harzer Käse', 120, 27, 0, 0.7, '1 Portion', 50],
-  ['Frischkäse', 235, 5.4, 4, 21.5, '1 EL', 20], ['Proteinpudding', 78, 10, 6.6, 1.3, '1 Becher', 200],
-  ['Naturjoghurt 3,5%', 64, 3.5, 4.7, 3.5, '1 Portion', 150], ['Haferdrink', 42, 1, 6.5, 1.5, '1 Glas', 250],
-  ['Sojadrink', 39, 3.3, 2.5, 1.8, '1 Glas', 250],
-  // Gemüse & Hülsenfrüchte
-  ['Mais (Dose)', 85, 2.9, 15, 1.2, '1 kleine Dose', 140], ['Kichererbsen (Dose)', 119, 7, 15, 2.5, '1 Dose', 240],
-  ['Paprika', 30, 1, 6, 0.3, '1 Paprika', 150], ['Tomate', 18, 0.9, 3, 0.2, '1 Tomate', 100],
-  ['Gurke', 15, 0.6, 2.2, 0.1, '½ Gurke', 200], ['Karotte', 41, 0.9, 9.6, 0.2, '1 Karotte', 80],
-  ['Spinat', 23, 2.9, 3.6, 0.4, '1 Portion', 100], ['Blattsalat', 15, 1.3, 2, 0.2, '1 Schale', 80],
-  ['Champignons', 22, 3, 3, 0.3, '1 Portion', 100], ['Zucchini', 17, 1.2, 3, 0.3, '1 Zucchini', 200],
-  // Obst, Nüsse, Süßes
-  ['Orange', 47, 0.9, 12, 0.1, '1 Orange', 150], ['Weintrauben', 69, 0.7, 18, 0.2, '1 Handvoll', 100],
-  ['Erdbeeren', 32, 0.7, 7.7, 0.3, '1 Schale', 150], ['Mango', 60, 0.8, 15, 0.4, '½ Mango', 150],
-  ['Kiwi', 61, 1.1, 15, 0.5, '1 Kiwi', 75], ['Datteln', 282, 2.5, 75, 0.4, '3 Stück', 25],
-  ['Walnüsse', 654, 15, 14, 65, '1 Handvoll', 30], ['Cashews', 553, 18, 30, 44, '1 Handvoll', 30],
-  ['Honig', 304, 0.3, 82, 0, '1 TL', 10], ['Marmelade', 250, 0.4, 60, 0.1, '1 EL', 20],
-  ['Nuss-Nougat-Creme', 539, 6.3, 57, 31, '1 Portion', 15], ['Gummibärchen', 343, 6.9, 77, 0.1, '1 Handvoll', 30],
-  ['Vanilleeis', 207, 3.5, 24, 11, '1 Kugel', 50],
-  // Gerichte & Fast Food
-  ['Pommes', 312, 3.4, 41, 15, '1 Portion', 150], ['Burger', 257, 13, 22, 13, '1 Burger', 220],
-  ['Currywurst mit Soße', 220, 9, 9, 16, '1 Portion', 250], ['Lasagne', 132, 7, 12, 6, '1 Portion', 350],
-  ['Spaghetti Bolognese', 130, 6.5, 16, 4.5, '1 Teller', 400], ['Sushi (Maki)', 145, 4, 28, 1.5, '8 Stück', 200],
-  // Getränke
-  ['Energy Drink', 46, 0, 11, 0, '1 Dose', 250], ['Rotwein', 85, 0.1, 2.6, 0, '1 Glas', 200],
-  ['Apfelschorle', 24, 0, 5.5, 0, '1 Flasche (0,5 l)', 500], ['Cappuccino', 40, 2.5, 3.5, 1.6, '1 Tasse', 200],
-].map(([name, kcal, p, c, f, pl, pg]) => ({ name, kcal, p, c, f, portion: { l: pl, g: pg } }));
+/* Nährwerte pro 100 g (Richtwerte, Kohlenhydrate ohne Ballaststoffe) + typische Portion
+   [Name, kcal, Protein, Kohlenhydrate, Fett, Portion, Portion in g] */
+const FOOD_CATS = {
+  'Brot & Getreide': [
+    ['Haferflocken', 372, 13.5, 58.7, 7, '1 Portion', 50], ['Haferkleie', 360, 17, 48, 7, '2 EL', 20],
+    ['Müsli (ungesüßt)', 365, 10, 60, 7, '1 Schale', 60], ['Knuspermüsli', 450, 8, 64, 17, '1 Schale', 50],
+    ['Granola', 470, 9, 62, 20, '1 Schale', 50], ['Cornflakes', 378, 7, 84, 0.9, '1 Schale', 40],
+    ['Vollkornbrot', 220, 8, 41, 1.5, '1 Scheibe', 50], ['Roggenbrot', 210, 6, 42, 1.2, '1 Scheibe', 50],
+    ['Mischbrot', 230, 7, 45, 1.5, '1 Scheibe', 50], ['Dinkelbrot', 240, 9, 44, 2.5, '1 Scheibe', 50],
+    ['Pumpernickel', 190, 5.5, 38, 1, '1 Scheibe', 40], ['Proteinbrot', 260, 25, 8, 13, '1 Scheibe', 40],
+    ['Toastbrot', 265, 8, 49, 3.5, '1 Scheibe', 25], ['Vollkorntoast', 250, 9, 43, 4, '1 Scheibe', 25],
+    ['Brötchen', 270, 9, 53, 2, '1 Brötchen', 60], ['Vollkornbrötchen', 250, 10, 44, 3, '1 Brötchen', 60],
+    ['Brezel', 276, 8, 56, 1.8, '1 Brezel', 80], ['Laugenstange', 280, 9, 55, 2.5, '1 Stange', 70],
+    ['Croissant', 406, 8, 46, 21, '1 Croissant', 60], ['Baguette', 260, 9, 52, 1.5, '1 Stück', 60],
+    ['Bagel', 260, 10, 50, 1.6, '1 Bagel', 90], ['Pita', 275, 9, 55, 1.2, '1 Pita', 60],
+    ['Wrap (Weizen)', 300, 8, 50, 7, '1 Wrap', 60], ['Knäckebrot', 360, 10, 66, 2.5, '1 Scheibe', 10],
+    ['Reiswaffeln', 387, 8, 81, 3, '1 Stück', 8], ['Zwieback', 400, 10, 74, 6, '1 Stück', 10],
+    ['Pfannkuchen', 220, 7, 28, 9, '1 Pfannkuchen', 80],
+  ],
+  'Nudeln, Reis & Kartoffeln': [
+    ['Reis (gekocht)', 130, 2.7, 28, 0.3, '1 Portion', 150], ['Reis (roh)', 350, 7, 78, 0.6, '1 Portion', 75],
+    ['Basmatireis (roh)', 355, 8, 78, 1, '1 Portion', 75], ['Vollkornreis (roh)', 350, 7.5, 74, 2.5, '1 Portion', 75],
+    ['Milchreis (zubereitet)', 115, 3.5, 19, 2.8, '1 Portion', 200], ['Nudeln (gekocht)', 158, 5.8, 31, 0.9, '1 Teller', 200],
+    ['Nudeln (roh)', 359, 12.5, 71, 1.5, '1 Portion', 100], ['Vollkornnudeln (roh)', 350, 13, 64, 2.5, '1 Portion', 100],
+    ['Eiernudeln (roh)', 380, 13, 70, 3, '1 Portion', 100], ['Gnocchi', 150, 3.5, 33, 0.3, '1 Portion', 200],
+    ['Tortellini mit Käse (gekocht)', 210, 8, 30, 6, '1 Portion', 200], ['Couscous (roh)', 360, 12, 72, 1.5, '1 Portion', 70],
+    ['Bulgur (roh)', 345, 12, 69, 1.5, '1 Portion', 70], ['Quinoa (roh)', 368, 14, 64, 6, '1 Portion', 70],
+    ['Kartoffeln (gekocht)', 77, 2, 17, 0.1, '1 Portion', 200], ['Süßkartoffel (gekocht)', 86, 1.6, 20, 0.1, '1 Portion', 200],
+    ['Kartoffelpüree', 90, 2, 13, 3.5, '1 Portion', 200], ['Bratkartoffeln', 150, 2.5, 20, 7, '1 Portion', 200],
+    ['Pommes', 312, 3.4, 41, 15, '1 Portion', 150], ['Ofenpommes', 200, 3, 28, 8, '1 Portion', 150],
+    ['Kroketten', 200, 3, 25, 10, '1 Portion', 150], ['Rösti', 190, 2.5, 22, 10, '1 Portion', 150],
+    ['Spätzle (gekocht)', 160, 6, 28, 2.5, '1 Portion', 200], ['Semmelknödel', 190, 6, 33, 3.5, '1 Knödel', 80],
+    ['Kartoffelknödel', 110, 2, 24, 0.5, '1 Knödel', 90],
+  ],
+  'Fleisch & Geflügel': [
+    ['Hähnchenbrust (roh)', 110, 23, 0, 1.5, '1 Filet', 150], ['Hähnchenbrust (gebraten)', 150, 30, 0, 3, '1 Filet', 130],
+    ['Hähnchenschenkel ohne Haut (roh)', 119, 19.7, 0, 4.3, '1 Portion', 150], ['Chicken Nuggets', 260, 15, 16, 15, '6 Stück', 100],
+    ['Putenbrust (roh)', 107, 24, 0, 1, '1 Filet', 150], ['Putenhack (roh)', 150, 20, 0, 8, '1 Portion', 125],
+    ['Rinderhack (roh)', 254, 17.2, 0, 20, '1 Portion', 125], ['Rinderhack mager 5% (roh)', 137, 21, 0, 5, '1 Portion', 125],
+    ['Gemischtes Hack (roh)', 260, 18, 0, 21, '1 Portion', 125], ['Rindersteak Hüfte (roh)', 130, 22, 0, 4.5, '1 Steak', 200],
+    ['Rumpsteak (roh)', 165, 22, 0, 8.5, '1 Steak', 200], ['Rinderfilet (roh)', 120, 21, 0, 4, '1 Steak', 180],
+    ['Schweinefilet (roh)', 105, 22, 0, 2, '1 Portion', 150], ['Schweineschnitzel (roh)', 110, 22, 0, 2, '1 Schnitzel', 150],
+    ['Schnitzel paniert (gebraten)', 250, 18, 12, 14, '1 Schnitzel', 150], ['Schweinenacken (roh)', 190, 17, 0, 13.5, '1 Portion', 150],
+    ['Kassler', 160, 20, 0, 9, '1 Portion', 150], ['Frikadelle', 240, 15, 8, 16, '1 Frikadelle', 80],
+    ['Bratwurst', 290, 13, 1, 26, '1 Wurst', 100], ['Wiener Würstchen', 270, 13, 1, 24, '1 Paar', 100],
+    ['Leberkäse', 290, 12, 1, 27, '1 Scheibe', 100], ['Bacon', 400, 14, 1, 38, '3 Scheiben', 30],
+    ['Lammkotelett (roh)', 250, 17, 0, 20, '1 Portion', 150], ['Gyros', 230, 20, 2, 16, '1 Portion', 200],
+  ],
+  'Fisch & Meeresfrüchte': [
+    ['Lachs (roh)', 208, 20, 0, 13, '1 Filet', 125], ['Räucherlachs', 180, 21, 0, 10, '2 Scheiben', 50],
+    ['Thunfisch (Dose, Wasser)', 116, 26, 0, 1, '1 Dose', 150], ['Thunfisch (Dose, Öl)', 200, 25, 0, 11, '1 Dose', 150],
+    ['Seelachs (roh)', 80, 18, 0, 0.9, '1 Filet', 150], ['Kabeljau (roh)', 77, 17, 0, 0.6, '1 Filet', 150],
+    ['Forelle (roh)', 110, 20, 0, 3, '1 Filet', 150], ['Garnelen (roh)', 85, 19, 0, 1, '1 Portion', 150],
+    ['Fischstäbchen', 210, 12, 18, 10, '5 Stück', 140], ['Matjes', 260, 16, 0, 22, '1 Filet', 70],
+    ['Hering in Tomatensauce', 180, 13, 4, 12, '1 Dose', 200], ['Sardinen in Öl', 220, 24, 0, 14, '1 Dose', 90],
+    ['Makrele (geräuchert)', 230, 20, 0, 17, '1 Portion', 100], ['Tintenfischringe (frittiert)', 230, 13, 18, 12, '1 Portion', 150],
+  ],
+  'Aufschnitt': [
+    ['Kochschinken', 110, 20, 1, 3, '1 Scheibe', 20], ['Putenaufschnitt', 105, 21, 1, 2, '1 Scheibe', 15],
+    ['Hähnchenbrust-Aufschnitt', 100, 21, 1, 1.5, '1 Scheibe', 15], ['Lachsschinken', 120, 22, 0, 3.5, '1 Scheibe', 15],
+    ['Serranoschinken', 250, 30, 0, 14, '1 Scheibe', 15], ['Salami', 420, 21, 1, 37, '1 Scheibe', 10],
+    ['Mortadella', 300, 14, 1, 27, '1 Scheibe', 20], ['Bierschinken', 200, 15, 0, 15, '1 Scheibe', 20],
+    ['Leberwurst', 330, 13, 1, 30, '1 Portion', 20], ['Teewurst', 360, 13, 0, 34, '1 Portion', 20],
+  ],
+  'Eier & Milchprodukte': [
+    ['Ei', 155, 13, 1.1, 11, '1 Ei (M)', 60], ['Eiklar', 52, 11, 0.7, 0.2, '1 Eiklar', 33],
+    ['Rührei', 150, 10, 2, 11, '2 Eier', 130], ['Omelett', 154, 11, 1, 12, '2 Eier', 130],
+    ['Magerquark', 67, 12, 4, 0.2, '1 Becher', 250], ['Quark 20 %', 110, 12, 3.5, 5, '1 Becher', 250],
+    ['Speisequark 40 %', 160, 11, 3, 11.5, '1 Becher', 250], ['Skyr', 63, 11, 4, 0.2, '1 Becher', 150],
+    ['Griechischer Joghurt 10%', 133, 5, 4, 10, '1 Portion', 150], ['Naturjoghurt 3,5%', 64, 3.5, 4.7, 3.5, '1 Portion', 150],
+    ['Joghurt 1,5 %', 50, 4, 5, 1.5, '1 Becher', 150], ['Fruchtjoghurt', 100, 3.5, 15, 3, '1 Becher', 150],
+    ['Hüttenkäse', 98, 11, 3.4, 4.3, '1 Becher', 200], ['Proteinpudding', 78, 10, 6.6, 1.3, '1 Becher', 200],
+    ['Schokopudding', 110, 3.2, 17, 3, '1 Becher', 125], ['Milch 1,5%', 47, 3.4, 4.9, 1.5, '1 Glas', 250],
+    ['Milch 3,5 %', 64, 3.3, 4.8, 3.5, '1 Glas', 250], ['Buttermilch', 37, 3.5, 4, 0.5, '1 Glas', 250],
+    ['Kefir', 60, 3.4, 4, 3.5, '1 Glas', 250], ['Kakao (mit Milch)', 75, 3.5, 10, 2, '1 Tasse', 250],
+    ['Haferdrink', 42, 1, 6.5, 1.5, '1 Glas', 250], ['Sojadrink', 39, 3.3, 2.5, 1.8, '1 Glas', 250],
+    ['Mandeldrink (ungesüßt)', 15, 0.5, 0.3, 1.2, '1 Glas', 250], ['Butter', 741, 0.7, 0.6, 83, '1 Portion', 10],
+    ['Frischkäse', 235, 5.4, 4, 21.5, '1 EL', 20], ['Frischkäse light', 140, 8, 4, 10, '1 EL', 20],
+    ['Gouda', 356, 25, 0, 27, '1 Scheibe', 25], ['Emmentaler', 380, 28, 0, 30, '1 Scheibe', 25],
+    ['Edamer 30 %', 250, 27, 0, 16, '1 Scheibe', 25], ['Mozzarella', 250, 18, 1, 19, '1 Kugel', 125],
+    ['Mozzarella light', 160, 19, 1, 9, '1 Kugel', 125], ['Feta', 264, 14, 4, 21, '1 Portion', 50],
+    ['Parmesan', 400, 35, 0, 29, '1 EL gerieben', 10], ['Harzer Käse', 120, 27, 0, 0.7, '1 Portion', 50],
+    ['Camembert', 300, 20, 0, 24, '1 Ecke', 30], ['Halloumi', 320, 22, 2, 25, '1 Portion', 100],
+    ['Sahne 30 %', 290, 2.4, 3.2, 30, '1 EL', 15], ['Saure Sahne', 160, 2.8, 3.5, 15, '1 EL', 15],
+    ['Schmand', 240, 2.5, 3, 24, '1 EL', 15], ['Crème fraîche', 300, 2.4, 2.5, 30, '1 EL', 15],
+  ],
+  'Gemüse': [
+    ['Brokkoli', 34, 2.8, 7, 0.4, '1 Portion', 150], ['Blumenkohl', 25, 2, 3, 0.3, '1 Portion', 150],
+    ['Gemüsemix (TK)', 40, 2, 6, 0.4, '1 Portion', 200], ['Paprika', 30, 1, 6, 0.3, '1 Paprika', 150],
+    ['Tomate', 18, 0.9, 3, 0.2, '1 Tomate', 100], ['Cherrytomaten', 20, 1, 3, 0.3, '1 Handvoll', 100],
+    ['Gurke', 15, 0.6, 2.2, 0.1, '½ Gurke', 200], ['Karotte', 41, 0.9, 9.6, 0.2, '1 Karotte', 80],
+    ['Spinat', 23, 2.9, 3.6, 0.4, '1 Portion', 100], ['Blattsalat', 15, 1.3, 2, 0.2, '1 Schale', 80],
+    ['Rucola', 25, 2.6, 2, 0.7, '1 Portion', 50], ['Champignons', 22, 3, 3, 0.3, '1 Portion', 100],
+    ['Zucchini', 17, 1.2, 3, 0.3, '1 Zucchini', 200], ['Aubergine', 24, 1, 6, 0.2, '1 Portion', 200],
+    ['Zwiebel', 40, 1.1, 9, 0.1, '1 Zwiebel', 80], ['Knoblauch', 149, 6.4, 33, 0.5, '1 Zehe', 4],
+    ['Mais (Dose)', 85, 2.9, 15, 1.2, '1 kleine Dose', 140], ['Erbsen (TK)', 80, 5.4, 14, 0.4, '1 Portion', 100],
+    ['Grüne Bohnen', 31, 1.8, 7, 0.2, '1 Portion', 150], ['Rosenkohl', 43, 3.4, 9, 0.3, '1 Portion', 150],
+    ['Grünkohl', 49, 4.3, 9, 0.9, '1 Portion', 150], ['Spargel', 20, 2.2, 3.9, 0.1, '1 Portion', 250],
+    ['Kürbis (Hokkaido)', 63, 1.7, 12, 0.6, '1 Portion', 200], ['Rote Bete', 43, 1.6, 10, 0.2, '1 Portion', 100],
+    ['Sauerkraut', 20, 1.5, 3, 0.3, '1 Portion', 150], ['Kohlrabi', 27, 1.7, 6, 0.1, '1 Portion', 150],
+    ['Avocado', 160, 2, 9, 15, '½ Avocado', 70], ['Oliven (grün)', 145, 1, 4, 15, '1 Handvoll', 30],
+    ['Edamame', 120, 11, 9, 5, '1 Portion', 100],
+  ],
+  'Hülsenfrüchte & Tofu': [
+    ['Linsen (gekocht)', 116, 9, 20, 0.4, '1 Portion', 150], ['Rote Linsen (roh)', 340, 24, 50, 1.5, '1 Portion', 70],
+    ['Kichererbsen (Dose)', 119, 7, 15, 2.5, '1 Dose', 240], ['Kidneybohnen (Dose)', 104, 7, 16, 0.6, '1 Dose', 250],
+    ['Weiße Bohnen (Dose)', 95, 6.5, 15, 0.5, '1 Dose', 250], ['Baked Beans', 85, 5, 13, 0.5, '½ Dose', 200],
+    ['Hummus', 250, 7, 14, 18, '2 EL', 40], ['Tofu natur', 120, 12, 2, 7, '1 Portion', 100],
+    ['Räuchertofu', 160, 16, 2, 10, '1 Portion', 100], ['Tempeh', 190, 19, 9, 11, '1 Portion', 100],
+    ['Sojaschnetzel (trocken)', 340, 50, 15, 1.5, '1 Portion', 50], ['Seitan', 140, 25, 4, 2, '1 Portion', 100],
+    ['Falafel', 330, 13, 31, 18, '5 Stück', 100],
+  ],
+  'Obst': [
+    ['Banane', 89, 1.1, 23, 0.3, '1 Banane', 120], ['Apfel', 52, 0.3, 14, 0.2, '1 Apfel', 150],
+    ['Birne', 57, 0.4, 15, 0.1, '1 Birne', 170], ['Orange', 47, 0.9, 12, 0.1, '1 Orange', 150],
+    ['Mandarine', 53, 0.8, 13, 0.3, '1 Mandarine', 70], ['Grapefruit', 42, 0.8, 11, 0.1, '½ Grapefruit', 150],
+    ['Weintrauben', 69, 0.7, 18, 0.2, '1 Handvoll', 100], ['Erdbeeren', 32, 0.7, 7.7, 0.3, '1 Schale', 150],
+    ['Heidelbeeren', 57, 0.7, 14, 0.3, '1 Schale', 125], ['Himbeeren', 52, 1.2, 12, 0.7, '1 Schale', 125],
+    ['Beeren (TK)', 45, 1, 9, 0.4, '1 Portion', 100], ['Mango', 60, 0.8, 15, 0.4, '½ Mango', 150],
+    ['Ananas', 50, 0.5, 13, 0.1, '1 Portion', 150], ['Kiwi', 61, 1.1, 15, 0.5, '1 Kiwi', 75],
+    ['Wassermelone', 30, 0.6, 8, 0.2, '1 Stück', 300], ['Pfirsich', 39, 0.9, 10, 0.3, '1 Pfirsich', 150],
+    ['Kirschen', 63, 1, 16, 0.2, '1 Handvoll', 100], ['Pflaume', 46, 0.7, 11, 0.3, '1 Pflaume', 40],
+    ['Apfelmus', 70, 0.3, 17, 0.1, '1 Portion', 100], ['Datteln', 282, 2.5, 75, 0.4, '3 Stück', 25],
+    ['Rosinen', 300, 3, 79, 0.5, '1 Handvoll', 30], ['Getrocknete Aprikosen', 240, 3.4, 63, 0.5, '1 Handvoll', 30],
+  ],
+  'Nüsse, Samen & Aufstriche': [
+    ['Mandeln', 579, 21, 22, 50, '1 Handvoll', 30], ['Walnüsse', 654, 15, 14, 65, '1 Handvoll', 30],
+    ['Cashews', 553, 18, 30, 44, '1 Handvoll', 30], ['Haselnüsse', 630, 15, 17, 61, '1 Handvoll', 30],
+    ['Erdnüsse (geröstet)', 590, 26, 16, 49, '1 Handvoll', 30], ['Pistazien', 570, 21, 28, 46, '1 Handvoll', 30],
+    ['Studentenfutter', 480, 13, 40, 30, '1 Handvoll', 30], ['Chiasamen', 490, 20, 5, 31, '1 EL', 15],
+    ['Leinsamen', 530, 18, 2, 37, '1 EL', 15], ['Sonnenblumenkerne', 580, 21, 12, 51, '1 EL', 15],
+    ['Kürbiskerne', 560, 30, 5, 46, '1 EL', 15], ['Erdnussbutter', 588, 25, 20, 50, '1 EL', 15],
+    ['Mandelmus', 620, 21, 7, 55, '1 EL', 15], ['Nuss-Nougat-Creme', 539, 6.3, 57, 31, '1 Portion', 15],
+    ['Honig', 304, 0.3, 82, 0, '1 TL', 10], ['Marmelade', 250, 0.4, 60, 0.1, '1 EL', 20],
+    ['Ahornsirup', 260, 0, 67, 0, '1 EL', 20],
+  ],
+  'Öle, Saucen & Gewürze': [
+    ['Olivenöl', 884, 0, 0, 100, '1 EL', 10], ['Rapsöl', 884, 0, 0, 100, '1 EL', 10],
+    ['Kokosöl', 870, 0, 0, 99, '1 EL', 10], ['Margarine', 720, 0.2, 0.4, 80, '1 Portion', 10],
+    ['Mayonnaise', 680, 1, 3, 75, '1 EL', 15], ['Ketchup', 110, 1.5, 24, 0.3, '1 EL', 15],
+    ['Senf', 70, 5, 5, 4, '1 TL', 5], ['Sojasauce', 60, 8, 6, 0.5, '1 EL', 15],
+    ['Pesto (grün)', 450, 5, 6, 45, '2 EL', 30], ['Tomatensauce (Passata)', 35, 1.5, 6, 0.3, '1 Portion', 100],
+    ['Bolognese-Sauce (Glas)', 90, 4, 8, 4.5, '1 Portion', 125], ['Currysauce', 120, 1.5, 20, 4, '1 Portion', 50],
+    ['BBQ-Sauce', 150, 1, 35, 0.3, '1 EL', 15], ['Joghurt-Dressing', 150, 2, 8, 12, '2 EL', 30],
+    ['Sauce Hollandaise', 450, 1.5, 5, 47, '2 EL', 30], ['Zucker', 400, 0, 100, 0, '1 TL', 5],
+  ],
+  'Süßes & Snacks': [
+    ['Vollmilchschokolade', 535, 7.7, 59, 30, '1 Riegel', 25], ['Zartbitterschokolade 70 %', 580, 9, 34, 43, '1 Riegel', 25],
+    ['Schokoriegel (Karamell)', 480, 4.5, 65, 22, '1 Riegel', 50], ['Gummibärchen', 343, 6.9, 77, 0.1, '1 Handvoll', 30],
+    ['Butterkekse', 440, 7, 73, 12, '3 Kekse', 15], ['Schokokekse', 490, 6, 64, 23, '2 Kekse', 25],
+    ['Muffin (Schoko)', 420, 6, 50, 21, '1 Muffin', 90], ['Donut', 400, 5, 48, 21, '1 Donut', 60],
+    ['Rührkuchen', 390, 5.5, 50, 18, '1 Stück', 70], ['Käsekuchen', 230, 7, 24, 12, '1 Stück', 120],
+    ['Apfelstrudel', 230, 3, 32, 10, '1 Stück', 120], ['Lebkuchen', 370, 6, 70, 7, '1 Stück', 30],
+    ['Vanilleeis', 207, 3.5, 24, 11, '1 Kugel', 50], ['Chips', 536, 6, 53, 33, '1 Handvoll', 30],
+    ['Erdnussflips', 520, 13, 48, 30, '1 Handvoll', 30], ['Salzstangen', 380, 10, 77, 3, '1 Handvoll', 30],
+    ['Popcorn (süß)', 450, 5, 75, 15, '1 Portion', 30], ['Müsliriegel', 400, 6, 62, 14, '1 Riegel', 25],
+    ['Reiswaffel mit Schokolade', 480, 6, 63, 22, '1 Stück', 17],
+  ],
+  'Getränke': [
+    ['Cola', 42, 0, 10.6, 0, '1 Dose (330 ml)', 330], ['Cola Zero', 0.3, 0, 0, 0, '1 Dose (330 ml)', 330],
+    ['Orangensaft', 45, 0.7, 10, 0.2, '1 Glas', 250], ['Apfelsaft', 46, 0.1, 11, 0.1, '1 Glas', 250],
+    ['Apfelschorle', 24, 0, 5.5, 0, '1 Flasche (0,5 l)', 500], ['Eistee', 30, 0, 7, 0, '1 Flasche (0,5 l)', 500],
+    ['Smoothie', 55, 0.6, 12, 0.2, '1 Flasche', 250], ['Iso-Getränk', 25, 0, 6, 0, '1 Flasche', 500],
+    ['Energy Drink', 46, 0, 11, 0, '1 Dose', 250], ['Kaffee schwarz', 2, 0.2, 0.3, 0, '1 Tasse', 200],
+    ['Cappuccino', 40, 2.5, 3.5, 1.6, '1 Tasse', 200], ['Latte Macchiato', 50, 3, 4.5, 2, '1 Glas', 300],
+    ['Bier', 43, 0.5, 3.6, 0, '1 Flasche (0,5 l)', 500], ['Alkoholfreies Bier', 25, 0.4, 5, 0, '1 Flasche (0,5 l)', 500],
+    ['Weizenbier', 45, 0.5, 3.5, 0, '1 Glas (0,5 l)', 500], ['Rotwein', 85, 0.1, 2.6, 0, '1 Glas', 200],
+    ['Weißwein', 82, 0.1, 2.6, 0, '1 Glas', 200], ['Sekt', 85, 0.2, 5, 0, '1 Glas', 100],
+  ],
+  'Gerichte & Fast Food': [
+    ['Pizza Margherita', 230, 10, 30, 8, '1 Pizza', 330], ['Pizza Salami', 260, 11, 28, 11, '1 Pizza', 350],
+    ['Pizza (TK)', 250, 10, 30, 10, '1 Pizza', 350], ['Burger', 257, 13, 22, 13, '1 Burger', 220],
+    ['Cheeseburger', 260, 13, 28, 11, '1 Burger', 120], ['Hot Dog', 250, 10, 25, 12, '1 Hot Dog', 150],
+    ['Döner Kebab', 215, 11, 20, 10, '1 Döner', 400], ['Dürüm', 210, 12, 20, 9, '1 Dürüm', 400],
+    ['Currywurst mit Soße', 220, 9, 9, 16, '1 Portion', 250], ['Lasagne', 132, 7, 12, 6, '1 Portion', 350],
+    ['Spaghetti Bolognese', 130, 6.5, 16, 4.5, '1 Teller', 400], ['Spaghetti Carbonara', 190, 8, 22, 8, '1 Teller', 400],
+    ['Penne Arrabbiata', 120, 4, 22, 2, '1 Teller', 400], ['Chili con Carne', 110, 8, 9, 4.5, '1 Teller', 350],
+    ['Gulasch', 130, 15, 3, 6.5, '1 Portion', 300], ['Hühnerfrikassee mit Reis', 130, 8, 15, 4, '1 Teller', 400],
+    ['Hähnchen-Curry mit Reis', 140, 8, 18, 4, '1 Teller', 400], ['Käsespätzle', 230, 10, 22, 11, '1 Portion', 350],
+    ['Flammkuchen', 260, 8, 28, 13, '½ Flammkuchen', 200], ['Sushi (Maki)', 145, 4, 28, 1.5, '8 Stück', 200],
+    ['Sushi (Nigiri)', 150, 7, 25, 2, '6 Stück', 180], ['Gebratene Nudeln', 160, 5, 22, 6, '1 Portion', 350],
+    ['Gebratener Reis', 170, 5, 25, 6, '1 Portion', 350], ['Bowl mit Hähnchen & Reis', 140, 10, 16, 4, '1 Bowl', 450],
+    ['Caesar Salad', 150, 8, 6, 11, '1 Portion', 300], ['Kartoffelsalat (Mayo)', 180, 2, 13, 13, '1 Portion', 200],
+    ['Nudelsalat', 200, 4.5, 20, 11, '1 Portion', 200], ['Linseneintopf', 80, 5, 10, 2, '1 Teller', 400],
+    ['Tomatensuppe', 50, 1, 7, 2, '1 Teller', 300], ['Wrap mit Hähnchen', 190, 11, 20, 7, '1 Wrap', 250],
+    ['Käsebrötchen', 270, 12, 30, 11, '1 Brötchen', 110],
+  ],
+  'Sportnahrung': [
+    ['Whey Protein', 380, 78, 6, 5, '1 Scoop', 30], ['Casein', 360, 80, 5, 2, '1 Scoop', 30],
+    ['Veganes Protein', 370, 75, 6, 6, '1 Scoop', 30], ['Weight Gainer', 380, 20, 65, 4, '1 Portion', 100],
+    ['Proteinriegel', 360, 33, 35, 12, '1 Riegel', 55], ['Proteinchips', 400, 40, 40, 8, '1 Tüte', 50],
+    ['Protein-Milchdrink', 60, 8, 5, 1, '1 Flasche', 330],
+  ],
+};
+const FOOD_DB = Object.entries(FOOD_CATS).flatMap(([cat, rows]) => rows.map(([name, kcal, p, c, f, pl, pg]) => ({ name, kcal, p, c, f, cat, portion: { l: pl, g: pg } })));
+const foodNorm = s => String(s).toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9%]+/g, ' ').trim();
+const FOOD_SYN = { huhn: 'haehnchen', chicken: 'haehnchen', haenchen: 'haehnchen', hendl: 'haehnchen', pute: 'puten', truthahn: 'puten', pasta: 'nudeln', spaghetti: 'nudeln', yoghurt: 'joghurt', jogurt: 'joghurt', shake: 'protein', eiweiss: 'protein', semmel: 'broetchen', schrippe: 'broetchen', erdapfel: 'kartoffel', fritten: 'pommes', paradeiser: 'tomate', topfen: 'quark', oat: 'hafer' };
+function foodScore(name, q) { // −1 = kein Treffer, sonst kleiner = besser
+  const n = foodNorm(name), toks = foodNorm(q).split(' ').filter(Boolean);
+  if (!toks.length) return -1;
+  for (const t of toks) { const s = FOOD_SYN[t]; if (!n.includes(t) && !(s && n.includes(s))) return -1; }
+  const t0 = FOOD_SYN[toks[0]] && !n.includes(toks[0]) ? FOOD_SYN[toks[0]] : toks[0];
+  return (n.startsWith(t0) ? 0 : (' ' + n).includes(' ' + t0) ? 1 : 2) + n.length / 200;
+}
+function foodSearch(q, list = FOOD_DB) {
+  return list.map(x => [x, foodScore(x.name, q)]).filter(([, s]) => s >= 0).sort((a, b) => a[1] - b[1]).map(([x]) => x);
+}
 
 /* Übungen: Wdh-Bereich (Double Progression), Steigerung in kg, Ziel-Sätze, Pause in s */
 const MUSCLE_MAP = { // Übung → [Hauptmuskeln, Hilfsmuskeln]
@@ -336,7 +479,7 @@ const sheetOpen = () => !$('#sheet').classList.contains('hidden');
 
 function ring(pct, color, label, sub) {
   const r = 54, c = 2 * Math.PI * r, p = Math.max(0, Math.min(1, pct));
-  return `<div class="ring"><svg viewBox="0 0 120 120"><defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecd5a6"/><stop offset="1" stop-color="#ad8850"/></linearGradient></defs>
+  return `<div class="ring"><svg viewBox="0 0 120 120"><defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--accent-hi)"/><stop offset="1" style="stop-color:var(--accent-lo)"/></linearGradient></defs>
     <circle cx="60" cy="60" r="${r}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="5"/>
     <circle cx="60" cy="60" r="${r}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round"
       stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}" style="transition:stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1)"/></svg>
@@ -1250,7 +1393,7 @@ function reTotals() {
 function renderRecipeSearch() {
   const box = $('#rres'); if (!box) return;
   const q = ($('#rq')?.value || '').trim().toLowerCase();
-  const list = q ? [...FOOD_DB.filter(x => x.name.toLowerCase().includes(q)), ...RE_EXTRA] : [];
+  const list = q ? [...foodSearch(q), ...RE_EXTRA] : [];
   RE.list = list;
   box.innerHTML = q ? `${list.length ? `<div class="list">${list.slice(0, 15).map((x, i) => `<div class="item tap" data-act="reAdd" data-i="${i}">
       <div class="t"><b>${esc(x.name)}</b><span>pro 100 g · ${fmt(x.kcal)} kcal · P ${fmt(x.p)}</span></div><span class="muted">+</span></div>`).join('')}</div>` : ''}
@@ -1791,9 +1934,10 @@ async function renderShareCard({ eyebrow, title, sub, stats = [], lines = [], ph
   const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
   const x = c.getContext('2d');
   const F = (w, s) => `${w} ${s}px -apple-system, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif`;
-  const bg = x.createRadialGradient(W / 2, -200, 100, W / 2, 200, 1100); bg.addColorStop(0, '#2a2416'); bg.addColorStop(0.55, '#0d0d0e'); bg.addColorStop(1, '#0a0a0b');
+  const cv = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+  const gold = x.createLinearGradient(80, 0, W - 80, 0); gold.addColorStop(0, cv('--accent-hi') || '#ecd5a6'); gold.addColorStop(1, cv('--accent2') || '#b48f57');
+  const bg = x.createRadialGradient(W / 2, -200, 100, W / 2, 200, 1100); bg.addColorStop(0, cv('--glow') || '#2a2416'); bg.addColorStop(0.55, '#0d0d0e'); bg.addColorStop(1, '#0a0a0b');
   x.fillStyle = bg; x.fillRect(0, 0, W, H);
-  const gold = x.createLinearGradient(80, 0, W - 80, 0); gold.addColorStop(0, '#ecd5a6'); gold.addColorStop(1, '#b48f57');
   const rr = (X, Y, w, h, r) => { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); };
   const fit = (t, max) => { t = String(t); while (x.measureText(t).width > max && t.length > 3) t = t.slice(0, -2).trimEnd() + '…'; return t; };
   let y = 120;
@@ -1841,7 +1985,7 @@ async function renderShareCard({ eyebrow, title, sub, stats = [], lines = [], ph
     x.fillStyle = '#f3f0ea'; x.font = F(500, 34); x.textAlign = 'left';
     const L = fit(l, (W - 160) * 0.55), lw = x.measureText(L).width + (hl ? 34 : 0);
     x.fillText(L, hl ? 114 : 80, y);
-    x.fillStyle = hl ? '#e3c792' : '#b8b2a8'; x.font = F(400, 34); x.textAlign = 'right'; x.fillText(fit(r, W - 160 - lw - 40), W - 80, y);
+    x.fillStyle = hl ? (cv('--accent-hi') || '#e3c792') : '#b8b2a8'; x.font = F(400, 34); x.textAlign = 'right'; x.fillText(fit(r, W - 160 - lw - 40), W - 80, y);
     x.textAlign = 'left'; y += 76;
   }
   // Fuß: Marke
@@ -2028,7 +2172,7 @@ function renderGym() {
     body = `<div class="gym-rest"><span class="label">Pause</span>
       <div class="gym-ring"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="6"/>
         <circle id="gymArc" cx="100" cy="100" r="92" fill="none" stroke="url(#gold)" stroke-width="6" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - left / UI.rest.total)}" transform="rotate(-90 100 100)"/>
-        <defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecd5a6"/><stop offset="1" stop-color="#ad8850"/></linearGradient></defs></svg>
+        <defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--accent-hi)"/><stop offset="1" style="stop-color:var(--accent-lo)"/></linearGradient></defs></svg>
         <b id="gymRest">${mmss(left)}</b></div>
       <div class="row" style="justify-content:center;gap:10px"><button class="btn" data-act="restAdd" data-s="-15">−15 s</button><button class="btn" data-act="restAdd" data-s="15">+15 s</button><button class="btn primary" data-act="restSkip">Weiter</button></div>
       ${n ? `<div class="gym-next"><span class="label">Als Nächstes</span><b>${esc(n.name)}</b><span>Satz ${n.si + 1} · ${n.w ? fmt(n.w, 2) + ' kg' : 'Körpergewicht'} × ${n.r}</span></div>` : ''}</div>`;
@@ -2173,6 +2317,19 @@ function autoKcalCheck() {
   S.meta.autoKcalWeek = wk;
   if (Math.abs(r.kcal - st.kcal) >= 30) { const old = st.kcal; applyKcalGoal(r.kcal); save(); render(); setTimeout(() => toast(`Kalorienziel angepasst: ${fmt(old)} → ${fmt(r.kcal)} kcal`), 600); }
   else save();
+}
+
+/* ---------- Akzentfarbe ---------- */
+const ACCENTS = {
+  gold: ['Gold', '#e8cd9a', '#b9955c'], platin: ['Platin', '#e6e8ec', '#9aa0aa'], rose: ['Roségold', '#f0c4b8', '#c07f6f'],
+  smaragd: ['Smaragd', '#a6dcc0', '#4f9d78'], saphir: ['Saphir', '#b7cdf3', '#5f84c9'], amethyst: ['Amethyst', '#d4c4f3', '#8c70c8'], onyx: ['Onyx', '#ffffff', '#a19d94'],
+};
+function applyAccent() { document.documentElement.dataset.accent = ACCENTS[S.settings.accent] ? S.settings.accent : 'gold'; }
+function accentCard() {
+  const cur = ACCENTS[S.settings.accent] ? S.settings.accent : 'gold';
+  return `<div class="card"><h2>Design</h2><span class="label">Akzentfarbe</span>
+    <div class="swatches">${Object.entries(ACCENTS).map(([k, [l, hi, lo]]) => `<button class="sw ${k === cur ? 'on' : ''}" data-act="setAccent" data-k="${k}" aria-label="${l}">
+      <i style="background:linear-gradient(145deg, ${hi}, ${lo})"></i><span>${l}</span></button>`).join('')}</div></div>`;
 }
 
 /* ---------- Views ---------- */
@@ -2618,6 +2775,7 @@ VIEWS.more = () => {
   return `
   <h1>Einstellungen</h1>
   <div class="sub">Profil, Ziele, Erinnerungen & Daten</div>
+  ${accentCard()}
 
   <div class="card">
     <h2>Profil</h2>
@@ -2812,6 +2970,7 @@ function renderFoodBody() {
   if (FC.mode === 'saved') return renderSaved(b);
   if (FC.mode === 'search') {
     b.innerHTML = `<input id="fq" type="search" placeholder="z.B. Haferflocken, Skyr, Hähnchen …" autocomplete="off">
+      <div class="chips lb-chips" id="fcats"></div>
       <div id="fres" style="margin-top:10px"></div>
       <button class="btn block ghost" style="margin-top:10px" data-act="offSearch">Online in Open Food Facts suchen</button>`;
     renderFoodResults();
@@ -2834,25 +2993,29 @@ function renderFoodBody() {
 }
 function renderFoodResults(extra) {
   const box = $('#fres'); if (!box) return;
-  const q = ($('#fq')?.value || '').trim().toLowerCase();
+  const q = ($('#fq')?.value || '').trim();
   const seen = new Set(), recents = [];
   for (const f of [...S.foods].sort((a, b) => b.ts - a.ts)) {
     const k = f.name.toLowerCase() + '|' + Math.round(f.kcal);
     if (!seen.has(k)) { seen.add(k); recents.push(f); } if (recents.length >= 40) break;
   }
-  const m = x => !q || x.name.toLowerCase().includes(q);
-  const list = [
+  const m = x => !q || foodScore(x.name, q) >= 0;
+  const cats = $('#fcats');
+  if (cats) cats.innerHTML = q ? '' : Object.keys(FOOD_CATS).map(c => `<button class="chip ${FC.cat === c ? 'on' : ''}" data-act="foodCat" data-c="${esc(c)}">${c}</button>`).join('');
+  let list;
+  if (!q && FC.cat) list = FOOD_DB.filter(x => x.cat === FC.cat).map(x => ({ ...x, kind: 'per100', tag: 'pro 100 g' }));
+  else list = [
     ...S.favFoods.filter(m).map(x => ({ ...x, kind: 'abs', tag: '★' })),
     ...recents.filter(m).slice(0, q ? 10 : 8).map(x => ({ ...x, kind: 'abs', tag: 'Zuletzt' })),
     ...(q ? S.recipes.filter(m).map(r => ({ ...perPortion(r), name: r.name, kind: 'recipe', rid: r.id, tag: 'Rezept · pro Portion' })) : []),
-    ...(q ? FOOD_DB.filter(m).map(x => ({ ...x, kind: 'per100', tag: 'pro 100 g' })) : []),
+    ...(q ? foodSearch(q).slice(0, 40).map(x => ({ ...x, kind: 'per100', tag: `${x.cat} · pro 100 g` })) : []),
     ...(extra || []).map(x => ({ ...x, kind: 'per100', tag: 'Online' })),
   ];
   FC.list = list;
-  box.innerHTML = list.length ? `<div class="list">${list.map((x, i) => `<div class="item tap" data-act="pickFood" data-i="${i}">
+  box.innerHTML = list.length ? `${!q && FC.cat ? `<h3 style="margin-top:4px">${esc(FC.cat)} · ${list.length}</h3>` : ''}<div class="list">${list.map((x, i) => `<div class="item tap" data-act="pickFood" data-i="${i}">
     <div class="t"><b>${esc(x.name)}</b><span>${x.tag} · ${fmt(x.kcal)} kcal · P ${fmt(x.p)} · K ${fmt(x.c)} · F ${fmt(x.f)}</span></div>
     ${x.id && x.tag === '★' ? `<button class="x" data-act="delFav" data-id="${x.id}">×</button>` : ''}<span class="muted">${x.kind === 'abs' ? '+' : '›'}</span></div>`).join('')}</div>`
-    : `<div class="empty small">${q ? 'Nichts gefunden – probier die Online-Suche oder trag es manuell ein.' : 'Tippe, um zu suchen. Zuletzt gegessene Sachen erscheinen hier für 1-Tap-Logging.'}</div>`;
+    : `<div class="empty small">${q ? 'Nichts gefunden – probier die Online-Suche oder trag es manuell ein.' : `Suche unter ${FOOD_DB.length} Lebensmitteln oder stöbere in den Kategorien. Zuletzt Gegessenes erscheint hier für 1-Tap-Logging.`}</div>`;
 }
 function renderAmount() {
   const x = FC.picked, g0 = x.portion?.g || 100;
@@ -3105,6 +3268,8 @@ function download(blob, name) {
 /* ---------- Actions ---------- */
 const A = {
   applyUpdate,
+  setAccent: el => { S.settings.accent = el.dataset.k; save(); applyAccent(); render(); },
+  foodCat: el => { FC.cat = FC.cat === el.dataset.c ? null : el.dataset.c; renderFoodResults(); },
   // Bibliothek
   openLibrary: () => exLibrary('manage'),
   lbReg: el => { LB.region = el.dataset.r; LB.muscle = null; renderLib(); },
@@ -3552,7 +3717,7 @@ const A = {
   importData: () => $('#importFile').click(),
   resetAll: async () => {
     if (!(confirm('Wirklich ALLE Daten löschen (inkl. Fotos)? Das kann nicht rückgängig gemacht werden.') && confirm('Ganz sicher?'))) return;
-    S = DEFAULTS(); save(); UI.tab = 'today';
+    S = DEFAULTS(); save(); applyAccent(); UI.tab = 'today';
     try { await idbTx('readwrite', st => st.clear()); } catch {}
     await loadPhotos(); render();
   },
@@ -3665,7 +3830,7 @@ document.addEventListener('change', e => {
       const d = JSON.parse(txt);
       if (!d || !d.settings || !Array.isArray(d.workouts)) throw new Error();
       if (!confirm('Backup laden? Aktuelle Daten werden ersetzt.')) return;
-      localStorage.setItem(KEY, JSON.stringify(d)); S = load(); render(); toast('✓ Backup geladen');
+      localStorage.setItem(KEY, JSON.stringify(d)); S = load(); applyAccent(); render(); toast('✓ Backup geladen');
     }).catch(() => toast('⚠ Ungültige Backup-Datei'));
     e.target.value = '';
   }
@@ -3716,6 +3881,7 @@ function applyUpdate() {
 }
 
 /* ---------- Start ---------- */
+applyAccent();
 render();
 checkWeighReminder();
 loadPhotos();
