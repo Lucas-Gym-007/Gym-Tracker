@@ -57,6 +57,10 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - **Teilbare Karten:** Workout, Rückblick und Vorher/Nachher als edles Bild (1080 × 1350) zum Teilen oder Speichern
 - **Tipp des Tages** auf Home: über 30 Tipps zu Training, Ernährung, Regeneration und Fortschritt
 
+- **Übungsbibliothek mit 100 Übungen**, nach Muskeln gruppiert, mit Filtern nach Körperregion, Muskel und Gerät sowie einer Suche. Dieselbe Bibliothek gilt im Workout, im Plan-Editor und in der Verwaltung.
+- **Gym-Modus:** Vollbild-Fokus auf einen Satz mit großen ± für Gewicht und Wiederholungen, Live-Vergleich, riesigem Pausen-Countdown und Vorschau auf den nächsten Satz. Dazu Sprachansagen auf Deutsch, und der Bildschirm bleibt an.
+- **Adaptiver Kalorienbedarf:** echter Verbrauch aus Ø Kalorien und Gewichtstrend der letzten 28 Tage (1 kg ≈ 7.700 kcal), mit wählbarem Tempo, empfohlenem Ziel, Verlauf und optionaler automatischer Anpassung jeden Montag
+
 **💪 Training**
 - **Plan-Baukasten**: Trainingsplan aus Trainingstagen zusammenstellen, Sätze pro Übung festlegen, als Rotation (x× pro Woche) oder mit festen Wochentagen. Das geplante Volumen pro Muskel siehst du live beim Bauen.
 - Vorlagen: Push/Pull/Beine, Oberkörper/Unterkörper, Ganzkörper A/B, Zuhause mit Kurzhanteln

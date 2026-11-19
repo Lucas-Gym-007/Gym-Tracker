@@ -143,6 +143,93 @@ const DEFAULT_EXERCISES = [
   ['hammer', 'Hammercurls', 'Arme', 8, 12, 1, 3, 60, false, 10],
   ['frenchpress', 'French Press (SZ)', 'Arme', 8, 12, 2.5, 3, 75, false, 20],
 ].map(([id, name, muscle, repMin, repMax, inc, sets, rest, barbell, start]) => ({ id, name, muscle, repMin, repMax, inc, sets, rest, barbell, start, pm: [...MUSCLE_MAP[id][0]], sm: [...MUSCLE_MAP[id][1]] }));
+/* Geräte & erweiterte Übungsbibliothek */
+const EQ = { lh: 'Langhantel', kh: 'Kurzhantel', kabel: 'Kabel', masch: 'Maschine', kg: 'Körpergewicht', sz: 'SZ-Stange', smith: 'Multipresse', kb: 'Kettlebell', other: 'Sonstiges' };
+const EQ_OF = {
+  bench: 'lh', incline_db: 'kh', dips: 'kg', squat: 'lh', deadlift: 'lh', rdl: 'lh', ohp: 'lh', row: 'lh', pullup: 'kg', latpull: 'kabel',
+  cablerow: 'kabel', legpress: 'masch', legcurl: 'masch', legext: 'masch', hipthrust: 'lh', calf: 'masch', lateral: 'kh', facepull: 'kabel',
+  curl: 'kh', pushdown: 'kabel', crunch: 'kabel', hanging_leg: 'kg', db_press: 'kh', pushup: 'kg', db_row: 'kh', db_shoulder: 'kh',
+  goblet: 'kh', lunge: 'kh', hammer: 'kh', frenchpress: 'sz',
+};
+const REGION_OF_M = { chest: 'Brust', lats: 'Rücken', upperback: 'Rücken', lowerback: 'Rücken', frontdelt: 'Schultern', sidedelt: 'Schultern', reardelt: 'Schultern',
+  biceps: 'Arme', triceps: 'Arme', forearms: 'Arme', quads: 'Beine', hams: 'Beine', glutes: 'Beine', calves: 'Beine', abs: 'Bauch' };
+DEFAULT_EXERCISES.forEach(e => { e.eq = EQ_OF[e.id] || 'other'; });
+// [id, Name, Gerät, Hauptmuskeln, Hilfsmuskeln, Wdh min, Wdh max, Steigerung, Pause, Startgewicht, Langhantel]
+const EXTRA_EXERCISES = [
+  ['incline_bench', 'Schrägbankdrücken (LH)', 'lh', ['chest'], ['frontdelt', 'triceps'], 6, 10, 2.5, 150, 30, true],
+  ['decline_bench', 'Negativ-Bankdrücken', 'lh', ['chest'], ['triceps'], 6, 10, 2.5, 150, 40, true],
+  ['db_fly', 'Kurzhantel-Flys', 'kh', ['chest'], ['frontdelt'], 10, 15, 1, 75, 8, false],
+  ['cable_fly', 'Cable Flys', 'kabel', ['chest'], ['frontdelt'], 10, 15, 2.5, 75, 10, false],
+  ['low_cable_fly', 'Cable Flys von unten', 'kabel', ['chest'], ['frontdelt'], 10, 15, 2.5, 75, 7.5, false],
+  ['pec_deck', 'Butterfly (Maschine)', 'masch', ['chest'], [], 10, 15, 5, 75, 30, false],
+  ['chest_press', 'Brustpresse (Maschine)', 'masch', ['chest'], ['triceps', 'frontdelt'], 8, 12, 5, 90, 40, false],
+  ['smith_incline', 'Schrägbankdrücken (Multipresse)', 'smith', ['chest'], ['frontdelt', 'triceps'], 8, 12, 2.5, 120, 30, false],
+  ['db_squeeze', 'Squeeze Press (KH)', 'kh', ['chest'], ['triceps'], 10, 15, 2, 75, 14, false],
+  ['machine_dips', 'Dips (Maschine)', 'masch', ['triceps', 'chest'], ['frontdelt'], 8, 12, 5, 90, 40, false],
+  ['chinup', 'Chin-ups (Untergriff)', 'kg', ['lats', 'biceps'], ['upperback'], 5, 10, 2.5, 120, 0, false],
+  ['pullup_neutral', 'Klimmzüge (neutraler Griff)', 'kg', ['lats'], ['biceps', 'upperback'], 5, 10, 2.5, 120, 0, false],
+  ['close_latpull', 'Latzug eng (V-Griff)', 'kabel', ['lats'], ['biceps', 'upperback'], 8, 12, 5, 90, 40, false],
+  ['single_row', 'Einarmiges Kabelrudern', 'kabel', ['lats'], ['upperback', 'biceps'], 10, 12, 2.5, 75, 15, false],
+  ['straight_pulldown', 'Überzüge am Kabel', 'kabel', ['lats'], ['triceps'], 10, 15, 2.5, 60, 15, false],
+  ['db_pullover', 'Kurzhantel-Pullover', 'kh', ['lats'], ['chest', 'triceps'], 10, 15, 2, 75, 14, false],
+  ['tbar_row', 'T-Bar-Rudern', 'lh', ['upperback', 'lats'], ['biceps', 'reardelt'], 8, 12, 2.5, 120, 30, false],
+  ['chest_row', 'Brustgestütztes Rudern (KH)', 'kh', ['upperback'], ['lats', 'reardelt', 'biceps'], 8, 12, 2, 90, 16, false],
+  ['machine_row', 'Rudermaschine', 'masch', ['upperback', 'lats'], ['biceps', 'reardelt'], 8, 12, 5, 90, 40, false],
+  ['pendlay', 'Pendlay Row', 'lh', ['upperback', 'lats'], ['lowerback', 'biceps'], 5, 8, 2.5, 150, 40, true],
+  ['shrug', 'Shrugs (LH)', 'lh', ['upperback'], ['forearms'], 10, 15, 5, 75, 60, true],
+  ['db_shrug', 'Shrugs (KH)', 'kh', ['upperback'], ['forearms'], 10, 15, 2, 60, 20, false],
+  ['rack_pull', 'Rack Pulls', 'lh', ['upperback', 'lowerback'], ['glutes', 'hams', 'forearms'], 3, 6, 5, 180, 80, true],
+  ['hyperext', 'Hyperextensions', 'kg', ['lowerback'], ['glutes', 'hams'], 10, 15, 2.5, 75, 0, false],
+  ['good_morning', 'Good Mornings', 'lh', ['hams', 'lowerback'], ['glutes'], 8, 12, 2.5, 120, 30, true],
+  ['arnold', 'Arnold Press', 'kh', ['frontdelt'], ['sidedelt', 'triceps'], 8, 12, 2, 90, 12, false],
+  ['machine_shoulder', 'Schulterpresse (Maschine)', 'masch', ['frontdelt'], ['sidedelt', 'triceps'], 8, 12, 5, 90, 30, false],
+  ['front_raise', 'Frontheben', 'kh', ['frontdelt'], [], 10, 15, 1, 60, 6, false],
+  ['cable_lateral', 'Seitheben am Kabel', 'kabel', ['sidedelt'], [], 12, 20, 1.25, 60, 5, false],
+  ['machine_lateral', 'Seitheben (Maschine)', 'masch', ['sidedelt'], [], 12, 20, 2.5, 60, 15, false],
+  ['upright_row', 'Aufrechtes Rudern', 'sz', ['sidedelt', 'upperback'], ['biceps'], 10, 15, 2.5, 75, 20, false],
+  ['reverse_fly', 'Reverse Flys (KH)', 'kh', ['reardelt'], ['upperback'], 12, 20, 1, 60, 5, false],
+  ['rear_delt_machine', 'Reverse Butterfly', 'masch', ['reardelt'], ['upperback'], 12, 20, 2.5, 60, 20, false],
+  ['bb_curl', 'Langhantel-Curls', 'lh', ['biceps'], ['forearms'], 8, 12, 2.5, 75, 20, false],
+  ['ez_curl', 'SZ-Curls', 'sz', ['biceps'], ['forearms'], 8, 12, 2.5, 75, 20, false],
+  ['preacher', 'Scottcurls', 'sz', ['biceps'], [], 8, 12, 2.5, 75, 15, false],
+  ['incline_curl', 'Schrägbank-Curls', 'kh', ['biceps'], [], 8, 12, 1, 75, 8, false],
+  ['cable_curl', 'Kabelcurls', 'kabel', ['biceps'], ['forearms'], 10, 15, 2.5, 60, 15, false],
+  ['conc_curl', 'Konzentrationscurls', 'kh', ['biceps'], [], 10, 15, 1, 60, 8, false],
+  ['overhead_ext', 'Trizeps Überkopf (Kabel)', 'kabel', ['triceps'], [], 10, 15, 2.5, 75, 15, false],
+  ['rope_pushdown', 'Trizepsdrücken (Seil)', 'kabel', ['triceps'], [], 10, 15, 2.5, 60, 15, false],
+  ['close_bench', 'Enges Bankdrücken', 'lh', ['triceps'], ['chest', 'frontdelt'], 6, 10, 2.5, 120, 40, true],
+  ['kickback', 'Trizeps-Kickbacks', 'kh', ['triceps'], [], 10, 15, 1, 60, 6, false],
+  ['bench_dips', 'Bankdips', 'kg', ['triceps'], ['chest', 'frontdelt'], 10, 20, 2.5, 60, 0, false],
+  ['wrist_curl', 'Handgelenk-Curls', 'lh', ['forearms'], [], 12, 20, 1.25, 45, 15, false],
+  ['reverse_curl', 'Reverse Curls', 'sz', ['forearms'], ['biceps'], 10, 15, 2.5, 60, 15, false],
+  ['farmer', 'Farmer\'s Walk (Schritte)', 'kh', ['forearms'], ['upperback', 'abs'], 20, 40, 2, 90, 20, false],
+  ['front_squat', 'Frontkniebeugen', 'lh', ['quads'], ['glutes', 'abs'], 5, 8, 2.5, 180, 40, true],
+  ['hack_squat', 'Hackenschmidt-Kniebeugen', 'masch', ['quads'], ['glutes'], 8, 12, 5, 120, 40, false],
+  ['bulgarian', 'Bulgarian Split Squats', 'kh', ['quads', 'glutes'], ['hams'], 8, 12, 2, 90, 10, false],
+  ['smith_squat', 'Kniebeugen (Multipresse)', 'smith', ['quads', 'glutes'], [], 8, 12, 2.5, 120, 40, false],
+  ['step_up', 'Step-ups', 'kh', ['quads', 'glutes'], [], 8, 12, 2, 75, 10, false],
+  ['walking_lunge', 'Ausfallschritte gehend', 'kh', ['quads', 'glutes'], ['hams'], 10, 16, 2, 90, 10, false],
+  ['seated_curl', 'Beinbeuger sitzend', 'masch', ['hams'], [], 10, 15, 5, 75, 30, false],
+  ['lying_curl', 'Beinbeuger liegend', 'masch', ['hams'], [], 10, 15, 5, 75, 25, false],
+  ['nordic', 'Nordic Curls', 'kg', ['hams'], [], 4, 8, 2.5, 120, 0, false],
+  ['db_rdl', 'Rumänisches Kreuzheben (KH)', 'kh', ['hams', 'glutes'], ['lowerback'], 8, 12, 2, 120, 20, false],
+  ['sumo_dl', 'Sumo-Kreuzheben', 'lh', ['glutes', 'hams'], ['quads', 'lowerback', 'upperback'], 3, 6, 5, 180, 60, true],
+  ['glute_bridge', 'Glute Bridge', 'lh', ['glutes'], ['hams'], 10, 15, 5, 90, 40, true],
+  ['cable_kickback', 'Glute Kickbacks (Kabel)', 'kabel', ['glutes'], [], 10, 15, 2.5, 60, 10, false],
+  ['abductor', 'Abduktoren (Maschine)', 'masch', ['glutes'], [], 12, 20, 5, 60, 30, false],
+  ['kb_swing', 'Kettlebell Swings', 'kb', ['glutes', 'hams'], ['lowerback', 'forearms'], 12, 20, 4, 90, 16, false],
+  ['seated_calf', 'Wadenheben sitzend', 'masch', ['calves'], [], 12, 20, 5, 60, 30, false],
+  ['legpress_calf', 'Wadendrücken (Beinpresse)', 'masch', ['calves'], [], 12, 20, 10, 60, 80, false],
+  ['ab_wheel', 'Ab Wheel Rollouts', 'kg', ['abs'], ['lats'], 8, 15, 2.5, 75, 0, false],
+  ['woodchop', 'Holzhacker (Kabel)', 'kabel', ['abs'], [], 10, 15, 2.5, 60, 10, false],
+  ['leg_raise', 'Beinheben liegend', 'kg', ['abs'], [], 10, 20, 2.5, 60, 0, false],
+  ['pallof', 'Pallof Press', 'kabel', ['abs'], [], 10, 15, 2.5, 60, 10, false],
+  ['decline_situp', 'Sit-ups (Schrägbank)', 'kg', ['abs'], [], 10, 20, 2.5, 60, 0, false],
+];
+EXTRA_EXERCISES.forEach(([id, name, eq, pm, sm, repMin, repMax, inc, rest, start, barbell]) => DEFAULT_EXERCISES.push({
+  id, name, muscle: REGION_OF_M[pm[0]] || 'Ganzkörper', repMin, repMax, inc, sets: 3, rest, barbell, start, pm: [...pm], sm: [...sm], eq,
+}));
+
 
 const DEFAULT_ROUTINES = [
   { id: 'push', group: 'ppl', name: 'Push (Brust, Schultern, Trizeps)', exIds: ['bench', 'ohp', 'incline_db', 'lateral', 'pushdown'] },
@@ -165,18 +252,19 @@ const DEFAULT_PROGRAMS = [
   { id: 'home', name: 'Zuhause mit Kurzhanteln', perWeek: 3, days: ['home'] },
 ];
 const mkPrograms = () => DEFAULT_PROGRAMS.map(p => ({ ...p, days: p.days.map(rid => ({ rid, wd: null })) }));
-const SEED_V = 3; // Version der Standard-Daten (für Updates bestehender Daten)
+const SEED_V = 4; // Version der Standard-Daten (für Updates bestehender Daten)
 
 const DEFAULTS = () => ({
   v: 1,
   settings: {
+    gymVoice: true, autoKcal: false, pace: null,
     name: '', sex: 'm', age: 25, height: 180, activity: 1.55, goal: 'cut', goalWeight: null,
     kcal: 2200, protein: 150, carbs: 220, fat: 70, water: 2500, weeklyWorkouts: 3,
     weighDay: 1, weighTime: '08:00', bar: 20, vol: {}, focus: [],
   },
   foods: [], favFoods: [], water: {}, weights: [], measures: [], prs: [],
   cardio: [], mealTemplates: [], recipes: [], goals: [],
-  habits: [], habitLog: {}, shopping: [], prep: [], checkins: [],
+  habits: [], habitLog: {}, shopping: [], prep: [], checkins: [], tdeeHist: [],
   exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
   routines: DEFAULT_ROUTINES.map(r => ({ ...r, exIds: [...r.exIds] })),
   programs: mkPrograms(), activeProgram: 'ppl',
@@ -217,6 +305,11 @@ function load() {
         st.activeProgram = (lastW && st.programs.find(p => p.days.some(d => d.rid === lastW.routineId))?.id) || st.programs[0]?.id || null;
       }
       st.meta.seedV = 3;
+    }
+    if (st.meta.seedV < 4) { // erweiterte Übungsbibliothek + Geräte
+      for (const e of DEFAULT_EXERCISES) if (!st.exercises.some(x => x.id === e.id)) st.exercises.push({ ...e, pm: [...e.pm], sm: [...e.sm] });
+      for (const e of st.exercises) if (!e.eq) e.eq = EQ_OF[e.id] || 'other';
+      st.meta.seedV = 4;
     }
     return st;
   } catch (e) { console.warn('Laden fehlgeschlagen', e); return d; }
@@ -1387,7 +1480,7 @@ function runAchievements() {
   if (!goalsHit.length && !fresh.length) return;
   save(); if (!sheetOpen()) render();
   toast(goalsHit.length ? `Ziel erreicht: ${goalsHit[0].title}` : fresh.length === 1 ? `Abzeichen freigeschaltet: ${fresh[0]}` : `${fresh.length} neue Abzeichen freigeschaltet`);
-  navigator.vibrate?.([40, 30, 40]);
+  if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.([40, 30, 40]);
 }
 
 /* ---------- PR-Ziele mit Deadline ---------- */
@@ -1834,6 +1927,254 @@ function tipCard() {
     <div style="margin-top:10px;font-size:15px;line-height:1.55">${text}</div></div>`;
 }
 
+/* =====================================================================
+   Übungsbibliothek · Gym-Modus · Adaptiver Kalorienbedarf
+   ===================================================================== */
+
+/* ---------- Übungsbibliothek ---------- */
+let LB = null;
+function exLibrary(mode) {
+  LB = { mode, region: LB?.region || 'all', muscle: null, eq: 'all' };
+  const title = { workout: 'Übung hinzufügen', routine: 'Übung zum Tag hinzufügen', manage: 'Übungsbibliothek' }[mode];
+  openSheet(`<h2>${title}</h2>
+    <input id="lq" type="search" placeholder="Suchen – Name, Muskel oder Gerät" autocomplete="off">
+    <div class="chips lb-chips" id="lb_reg"></div>
+    <div class="chips lb-chips sub" id="lb_mus"></div>
+    <div class="chips lb-chips sub" id="lb_eq"></div>
+    <div id="lb_res"></div>
+    <div class="sheet-actions">${mode === 'routine' ? '<button class="btn" data-act="lbBack">‹ Zurück</button>' : ''}
+      <button class="btn" data-act="editExercise" data-pick="${mode === 'workout' ? 1 : ''}">+ Eigene Übung</button>
+      ${mode !== 'routine' ? '<button class="btn primary" data-act="closeSheet">Fertig</button>' : ''}</div>`);
+  renderLib();
+}
+function renderLib() {
+  if (!LB || !$('#lb_res')) return;
+  const q = ($('#lq')?.value || '').trim().toLowerCase();
+  $('#lb_reg').innerHTML = ['all', ...REGIONS].map(r => `<button class="chip ${LB.region === r ? 'on' : ''}" data-act="lbReg" data-r="${r}">${r === 'all' ? 'Alle' : r}</button>`).join('');
+  const muscles = LB.region === 'all' ? [] : MUSCLE_LIST.filter(([, , rg]) => rg === LB.region).map(([m]) => m);
+  $('#lb_mus').innerHTML = muscles.length > 1 ? ['', ...muscles].map(m => `<button class="chip ${(LB.muscle || '') === m ? 'on2' : ''}" data-act="lbMus" data-m="${m}">${m ? mName(m) : 'Alle Muskeln'}</button>`).join('') : '';
+  const eqs = ['all', ...Object.keys(EQ).filter(k => S.exercises.some(e => (e.eq || 'other') === k))];
+  $('#lb_eq').innerHTML = eqs.map(k => `<button class="chip ${LB.eq === k ? 'on2' : ''}" data-act="lbEq" data-k="${k}">${k === 'all' ? 'Alle Geräte' : EQ[k]}</button>`).join('');
+  const xs = S.exercises.filter(e => {
+    const pm = e.pm || [];
+    if (LB.region !== 'all' && !pm.some(m => MUSCLE[m]?.region === LB.region)) return false;
+    if (LB.muscle && !pm.includes(LB.muscle)) return false;
+    if (LB.eq !== 'all' && (e.eq || 'other') !== LB.eq) return false;
+    if (q && !(e.name.toLowerCase().includes(q) || pm.some(m => mName(m).toLowerCase().includes(q)) || (EQ[e.eq] || '').toLowerCase().includes(q))) return false;
+    return true;
+  });
+  const groupOf = e => LB.muscle || (LB.region === 'all' ? e.pm[0] : e.pm.find(m => MUSCLE[m]?.region === LB.region) || e.pm[0]);
+  const used = new Set(S.workouts.flatMap(w => w.entries.map(x => x.exId)));
+  const inCtx = new Set(LB.mode === 'workout' ? (S.active?.entries || []).map(x => x.exId) : LB.mode === 'routine' ? RC?.exIds || [] : []);
+  const groups = {}; xs.forEach(e => (groups[groupOf(e)] ||= []).push(e));
+  $('#lb_res').innerHTML = xs.length ? MUSCLE_LIST.map(([m]) => m).filter(m => groups[m]).map(m => `<h3>${mName(m)} · ${groups[m].length}</h3><div class="list">${groups[m]
+    .sort((a, b) => (used.has(b.id) - used.has(a.id)) || a.name.localeCompare(b.name)).map(e => {
+      const b = used.has(e.id) ? bestSet(exHistory(e.id).flatMap(h => h.sets)) : null;
+      return `<div class="item tap" data-act="lbPick" data-id="${e.id}"><div class="t"><b>${esc(e.name)}</b>
+        <span>${EQ[e.eq] || 'Sonstiges'}${e.sm?.length ? ` · + ${e.sm.map(mName).join(', ')}` : ''}${b ? ` · Bestes ${prLabel({ kind: 'lift', ...b })}` : ''}</span></div>
+        ${inCtx.has(e.id) ? '<span class="pill acc">drin</span>' : ''}<span class="muted">${LB.mode === 'manage' ? '›' : '+'}</span></div>`;
+    }).join('')}</div>`).join('') : '<div class="empty small">Keine Übung gefunden – leg eine eigene an.</div>';
+}
+function libraryCard() {
+  const counts = REGIONS.map(r => [r, S.exercises.filter(e => MUSCLE[e.pm?.[0]]?.region === r).length]);
+  return `<div class="card tap-card" data-act="openLibrary"><div class="card-head"><h2>Übungsbibliothek</h2><span class="pill acc">${S.exercises.length} Übungen</span></div>
+    <div class="chips">${counts.map(([r, n]) => `<span class="chip">${r} ${n}</span>`).join('')}</div>
+    <div class="small muted" style="margin-top:10px">Nach Muskeln sortiert, mit Filter nach Gerät. Tippe eine Übung an für Verlauf, Wdh-Bereich, Steigerung & Pause.</div></div>`;
+}
+
+/* ---------- Gym-Modus ---------- */
+let GM = null;
+const gymFirstOpen = (from = 0) => {
+  const en = S.active.entries;
+  for (let k = 0; k < en.length; k++) { const i = (from + k) % en.length; if (en[i].sets.some(s => !s.done)) return i; }
+  return null;
+};
+function gymNext() {
+  if (!S.active) return null;
+  const i = gymFirstOpen(GM?.ei || 0); if (i == null) return null;
+  const e = S.active.entries[i], si = e.sets.findIndex(s => !s.done), x = e.sets[si], ex = exById(e.exId);
+  return { ei: i, si, name: ex?.name || '', w: x.w || 0, r: x.r ?? x.t ?? ex?.repMin };
+}
+function speak(t) {
+  if (!S.settings.gymVoice || !('speechSynthesis' in window)) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'de-DE'; u.rate = 1.03; speechSynthesis.speak(u); } catch {}
+}
+const sayKg = w => (w ? `${fmt(w, 2).replace(',', ' Komma ')} Kilo` : 'Körpergewicht');
+async function gymWake() { try { if (GM && 'wakeLock' in navigator && !document.hidden) GM.wake = await navigator.wakeLock.request('screen'); } catch {} }
+function gymOpen() {
+  if (!S.active) return;
+  GM = { ei: gymFirstOpen() ?? 0, wake: null, warned: false };
+  document.body.classList.add('gym-on'); $('#gym').classList.remove('hidden');
+  renderGym(); gymWake();
+}
+function gymClose() {
+  if (!GM) return;
+  try { GM.wake?.release(); } catch {}
+  GM = null; document.body.classList.remove('gym-on'); $('#gym').classList.add('hidden');
+  try { speechSynthesis.cancel(); } catch {}
+  render();
+}
+function renderGym() {
+  if (!GM) return;
+  if (!S.active) return gymClose();
+  const a = S.active, el = $('#gym');
+  const total = a.entries.reduce((n, e) => n + e.sets.length, 0), done = a.entries.reduce((n, e) => n + e.sets.filter(s => s.done).length, 0);
+  const top = `<div class="gym-top"><button class="gym-ic" data-act="gymClose" aria-label="Zur Liste">${ic('list')}</button>
+    <div class="gym-prog"><i style="width:${total ? done / total * 100 : 0}%"></i></div><span class="gym-t" data-elapsed>${mmss((Date.now() - a.start) / 1000)}</span>
+    <button class="gym-ic" data-act="gymVoice" aria-label="Sprachansage">${ic(S.settings.gymVoice ? 'volume' : 'mute')}</button></div>`;
+  let body;
+  if (UI.rest) {
+    const left = Math.max(0, (UI.rest.end - Date.now()) / 1000), n = gymNext(), C = 2 * Math.PI * 92;
+    body = `<div class="gym-rest"><span class="label">Pause</span>
+      <div class="gym-ring"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="6"/>
+        <circle id="gymArc" cx="100" cy="100" r="92" fill="none" stroke="url(#gold)" stroke-width="6" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - left / UI.rest.total)}" transform="rotate(-90 100 100)"/>
+        <defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecd5a6"/><stop offset="1" stop-color="#ad8850"/></linearGradient></defs></svg>
+        <b id="gymRest">${mmss(left)}</b></div>
+      <div class="row" style="justify-content:center;gap:10px"><button class="btn" data-act="restAdd" data-s="-15">−15 s</button><button class="btn" data-act="restAdd" data-s="15">+15 s</button><button class="btn primary" data-act="restSkip">Weiter</button></div>
+      ${n ? `<div class="gym-next"><span class="label">Als Nächstes</span><b>${esc(n.name)}</b><span>Satz ${n.si + 1} · ${n.w ? fmt(n.w, 2) + ' kg' : 'Körpergewicht'} × ${n.r}</span></div>` : ''}</div>`;
+  } else {
+    const ei = GM.ei, e = a.entries[ei], ex = e && exById(e.exId);
+    const si = e ? e.sets.findIndex(s => !s.done) : -1;
+    if (gymFirstOpen() == null) {
+      body = `<div class="gym-ex gym-end">${ic('trophy')}<h1>Alle Sätze erledigt</h1><div class="small muted">${done} Sätze · ${mmss((Date.now() - a.start) / 1000)}</div>
+        <button class="gym-done" data-act="gymFinish">Training beenden</button><button class="btn ghost" data-act="gymClose">Zur Liste</button></div>`;
+    } else if (!ex || si < 0) {
+      body = `<div class="gym-ex gym-end"><h1>${esc(ex?.name || 'Übung')} erledigt</h1><button class="gym-done" data-act="gymGoto" data-i="${gymFirstOpen(ei)}">Nächste Übung</button></div>`;
+    } else {
+      const x = e.sets[si], prev = exHistory(ex.id)[0], p = prev?.sets[si], r = x.r ?? x.t ?? ex.repMin;
+      body = `<div class="gym-ex">
+        <span class="label">Übung ${ei + 1} / ${a.entries.length} · Satz ${si + 1} / ${e.sets.length}</span>
+        <h1>${esc(ex.name)}</h1>
+        <div class="small muted">${p ? `Letztes Mal ${fmt(p.w, 2)} kg × ${p.r}` : 'Erstes Mal – sauber ausführen'}${ex.note ? ` · ${esc(ex.note)}` : ''}</div>
+        <div class="gym-val"><span class="label">Gewicht</span><div class="gym-step"><button data-act="gymAdj" data-f="w" data-d="-1" aria-label="weniger">−</button><b>${fmt(x.w ?? 0, 2)}<small>kg</small></b><button data-act="gymAdj" data-f="w" data-d="1" aria-label="mehr">+</button></div>
+          ${ex.barbell ? `<div class="small muted">${plates(x.w || 0)}</div>` : ''}</div>
+        <div class="gym-val"><span class="label">Wiederholungen</span><div class="gym-step"><button data-act="gymAdj" data-f="r" data-d="-1" aria-label="weniger">−</button><b>${r}</b><button data-act="gymAdj" data-f="r" data-d="1" aria-label="mehr">+</button></div></div>
+        <div class="gym-delta">${liveDelta({ ...x, r }, p)}</div>
+        <button class="gym-done" data-act="gymDone">Satz erledigt</button>
+        <div class="gym-nav"><button class="btn sm ghost" data-act="gymGoto" data-i="${ei - 1}" ${ei ? '' : 'disabled'}>‹ Vorherige</button><button class="btn sm ghost" data-act="gymGoto" data-i="${ei + 1}" ${ei < a.entries.length - 1 ? '' : 'disabled'}>Nächste ›</button></div>
+      </div>`;
+    }
+  }
+  el.innerHTML = top + body;
+}
+function gymTick() {
+  if (!GM || !UI.rest) return;
+  const left = Math.max(0, (UI.rest.end - Date.now()) / 1000), t = $('#gymRest'), arc = $('#gymArc');
+  if (!t) return renderGym();
+  t.textContent = mmss(left);
+  if (arc) arc.setAttribute('stroke-dashoffset', 2 * Math.PI * 92 * (1 - left / UI.rest.total));
+  if (left <= 10.5 && left > 1 && !GM.warned) { GM.warned = true; speak('Noch zehn Sekunden'); }
+}
+function gymRestEnded() {
+  if (!GM) return;
+  GM.warned = false; renderGym();
+  const n = gymNext();
+  if (n) speak(`Weiter geht's. ${n.name}, Satz ${n.si + 1}. ${sayKg(n.w)}, ${n.r} Wiederholungen.`);
+}
+
+/* ---------- Adaptiver Kalorienbedarf ---------- */
+const PACES = { cut: [[0.25, 'Sanft'], [0.5, 'Moderat'], [0.75, 'Zügig'], [1, 'Aggressiv']], bulk: [[0.1, 'Lean'], [0.25, 'Moderat'], [0.5, 'Zügig']], maintain: [[0, 'Halten']] };
+function paceOf() {
+  const st = S.settings, opts = PACES[st.goal] || PACES.maintain;
+  return opts.some(o => o[0] === st.pace) ? st.pace : opts[Math.min(1, opts.length - 1)][0];
+}
+function formulaTDEE() {
+  const st = S.settings, lw = latestWeight(); if (!lw) return null;
+  return (10 * lw.kg + 6.25 * st.height - 5 * st.age + (st.sex === 'f' ? -161 : 5)) * st.activity;
+}
+/* Verbrauch = Ø gegessen − Gewichtsänderung × 7.700 kcal/kg (Regression über 28 Tage), mit Formel gemischt, solange wenig Daten */
+function adaptiveTDEE(end = today(), days = 28) {
+  const from = addDays(end, -days), intake = [];
+  for (let d = from; d < end; d = addDays(d, 1)) { const k = dayTotals(d).kcal; if (k >= 800) intake.push(k); } // heute ist noch unvollständig
+  const ws = S.weights.filter(w => w.date >= from && w.date <= end).map(w => [daysBetween(from, w.date), w.kg]);
+  const span = ws.length ? Math.max(...ws.map(q => q[0])) - Math.min(...ws.map(q => q[0])) : 0;
+  const formula = formulaTDEE();
+  const base = { intakeDays: intake.length, weighs: ws.length, span, formula };
+  if (intake.length < 10 || ws.length < 3 || span < 14) return { ok: false, ...base, need: { days: Math.max(0, 10 - intake.length), weighs: Math.max(0, 3 - ws.length), span: span < 14 } };
+  const n = ws.length, mx = ws.reduce((a, q) => a + q[0], 0) / n, my = ws.reduce((a, q) => a + q[1], 0) / n;
+  const slope = ws.reduce((a, q) => a + (q[0] - mx) * (q[1] - my), 0) / ws.reduce((a, q) => a + (q[0] - mx) ** 2, 0);
+  const avgIn = intake.reduce((a, b) => a + b, 0) / intake.length;
+  const obs = avgIn - slope * 7700;
+  const conf = Math.min(1, intake.length / 21) * Math.min(1, ws.length / 4);
+  const tdee = formula ? conf * obs + (1 - conf) * formula : obs;
+  return { ok: true, ...base, tdee, obs, avgIn, slopeWeek: slope * 7, conf };
+}
+function kcalRecommendation() {
+  const a = adaptiveTDEE(), st = S.settings, lw = latestWeight();
+  const base = a.ok ? a.tdee : a.formula; if (!base || !lw) return null;
+  const pace = paceOf(), dir = st.goal === 'cut' ? -1 : st.goal === 'bulk' ? 1 : 0;
+  const kgWeek = dir * pace / 100 * lw.kg;
+  const kcal = Math.max(st.sex === 'f' ? 1200 : 1500, Math.round((base + kgWeek * 7700 / 7) / 10) * 10);
+  return { a, base, kcal, kgWeek, pace, adaptive: a.ok };
+}
+function applyKcalGoal(kcal) {
+  const st = S.settings, lw = latestWeight();
+  const protein = Math.round(lw.kg * 2), fat = Math.round(Math.max(lw.kg * 0.8, kcal * 0.25 / 9));
+  Object.assign(st, { kcal, protein, fat, carbs: Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4)) });
+}
+const paceText = r => (r.kgWeek ? `${r.kgWeek < 0 ? '−' : '+'}${fmt(r.pace, 2)} % KG pro Woche ≈ ${sgn(r.kgWeek, 2)} kg` : 'Gewicht halten');
+function energyCard() {
+  const r = kcalRecommendation(); if (!r) return '';
+  const a = r.a, st = S.settings;
+  if (!a.ok) {
+    const parts = [a.need.days && `noch ${a.need.days} Tage Essen loggen`, a.need.weighs && `noch ${a.need.weighs}× wiegen`, !a.need.weighs && a.need.span && 'Wiegungen über mind. 2 Wochen'].filter(Boolean);
+    return `<div class="card tap-card" data-act="energySheet"><div class="card-head"><span class="label">Dein echter Kalorienbedarf</span><span class="pill">lernt noch</span></div>
+      <div class="small">Aus dem, was du isst, und wie sich dein Gewicht entwickelt, berechne ich deinen tatsächlichen Verbrauch – genauer als jede Formel.</div>
+      <div class="track" style="margin:14px 0 8px"><i style="width:${Math.min(100, (a.intakeDays / 10 * 50) + (Math.min(3, a.weighs) / 3 * 50))}%"></i></div>
+      <div class="small muted">${parts.join(' · ')}${a.formula ? ` · Schätzung per Formel: ${fmt(a.formula)} kcal` : ''}</div></div>`;
+  }
+  const diff = r.kcal - st.kcal;
+  return `<div class="card tap-card" data-act="energySheet">
+    <div class="card-head"><span class="label">Dein Energiebedarf</span><span class="pill ${a.conf >= 0.8 ? 'acc' : ''}">${a.conf >= 0.8 ? 'gemessen' : 'wird genauer'}</span></div>
+    <div class="row" style="align-items:flex-end;gap:18px;flex-wrap:nowrap"><div><div class="big">${fmt(r.base)}</div><div class="small muted">kcal Verbrauch pro Tag</div></div>
+      <div class="small muted" style="margin-bottom:4px">Ø gegessen ${fmt(a.avgIn)} kcal<br>Gewicht ${sgn(a.slopeWeek, 2)} kg/Woche<br>Formel hätte ${fmt(a.formula)} gesagt</div></div>
+    <div class="hr" style="margin:16px 0"></div>
+    <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><span class="label">Empfohlenes Ziel</span><div style="font-size:21px;font-weight:500;margin-top:4px">${fmt(r.kcal)} kcal</div><div class="small muted">${paceText(r)}</div></div>
+      ${Math.abs(diff) >= 30 ? '<button class="btn sm primary" data-act="applyKcal">Übernehmen</button>' : '<span class="pill up">aktuell</span>'}</div>
+    ${st.autoKcal ? '<div class="small muted" style="margin-top:10px">Wird jeden Montag automatisch angepasst.</div>' : ''}</div>`;
+}
+function energySheet() {
+  const r = kcalRecommendation(), st = S.settings;
+  if (!r) return toast('Trag zuerst dein Gewicht und dein Profil ein');
+  const a = r.a, opts = PACES[st.goal] || PACES.maintain, pace = paceOf();
+  const hist = (S.tdeeHist || []).map(h => [parseYmd(h.date).getTime(), h.tdee]);
+  openSheet(`<h2>Adaptiver Kalorienbedarf</h2>
+    <div class="small muted" style="margin-bottom:14px">So funktioniert's: Dein Körper verbraucht, was du isst, minus das, was du abnimmst (1 kg ≈ 7.700 kcal). Aus den letzten 4 Wochen berechne ich so deinen echten Verbrauch und passe dein Ziel an.</div>
+    <div class="grid3">
+      <div class="stat"><b>${a.ok ? fmt(a.tdee) : '–'}</b><span>gemessen</span></div>
+      <div class="stat"><b>${a.formula ? fmt(a.formula) : '–'}</b><span>Formel</span></div>
+      <div class="stat"><b>${fmt(r.kcal)}</b><span>Empf. Ziel</span></div>
+    </div>
+    <h3>Tempo (${GOALS[st.goal]})</h3>
+    <div class="chips">${opts.map(([v, l]) => `<button class="chip ${v === pace ? 'on' : ''}" data-act="setPace" data-v="${v}">${l}${v ? ` · ${fmt(v, 2)} %` : ''}</button>`).join('')}</div>
+    <div class="small muted" style="margin-top:8px">${paceText(r)} · Ziel ändern unter „Mehr → Profil“.</div>
+    <h3>Datenbasis (28 Tage)</h3>
+    <div class="grid3">
+      <div class="stat"><b>${a.intakeDays}</b><span>Tage geloggt</span></div>
+      <div class="stat"><b>${a.weighs}</b><span>Wiegungen</span></div>
+      <div class="stat"><b>${a.ok ? fmt(a.conf * 100) + ' %' : '–'}</b><span>Verlässlichkeit</span></div>
+    </div>
+    <div class="small muted" style="margin-top:8px">Tage mit unter 800 kcal zählen als unvollständig geloggt und werden ignoriert. Je vollständiger du loggst, desto genauer.</div>
+    ${hist.length > 1 ? `<h3>Verlauf deines Verbrauchs</h3>${lineChart([{ pts: hist, color: 'var(--accent)', dots: true }], { h: 130 })}` : ''}
+    <label class="row" style="margin-top:18px"><input type="checkbox" id="ek_auto" ${st.autoKcal ? 'checked' : ''}> <span>Ziel jeden Montag automatisch anpassen</span></label>
+    <div class="sheet-actions">${Math.abs(r.kcal - st.kcal) >= 30 ? '<button class="btn primary" data-act="applyKcal">Ziel übernehmen</button>' : ''}<button class="btn" data-act="closeSheet">Schließen</button></div>`);
+}
+function recordTdee() {
+  const wk = ymd(weekStart(new Date()));
+  if (S.meta.tdeeWeek === wk) return;
+  const a = adaptiveTDEE(); if (!a.ok) return;
+  (S.tdeeHist ||= []).push({ date: today(), tdee: Math.round(a.tdee) });
+  S.meta.tdeeWeek = wk; save();
+}
+function autoKcalCheck() {
+  const st = S.settings; if (!st.autoKcal) return;
+  const wk = ymd(weekStart(new Date())); if (S.meta.autoKcalWeek === wk) return;
+  const r = kcalRecommendation(); if (!r || !r.adaptive) return;
+  S.meta.autoKcalWeek = wk;
+  if (Math.abs(r.kcal - st.kcal) >= 30) { const old = st.kcal; applyKcalGoal(r.kcal); save(); render(); setTimeout(() => toast(`Kalorienziel angepasst: ${fmt(old)} → ${fmt(r.kcal)} kcal`), 600); }
+  else save();
+}
+
 /* ---------- Views ---------- */
 const VIEWS = {};
 VIEWS.stats = () => statsView();
@@ -1849,6 +2190,10 @@ const ICONS = {
   ruler: 'M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0zM14.5 12.5l2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2',
   target: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
   check: 'M20 6 9 17l-5-5',
+  list: 'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
+  volume: 'M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14',
+  mute: 'M11 5 6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6',
+  screen: 'M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2',
   sparkle: 'M12 3l1.8 5.4c.3.8.9 1.4 1.7 1.7L21 12l-5.5 1.9c-.8.3-1.4.9-1.7 1.7L12 21l-1.8-5.4c-.3-.8-.9-1.4-1.7-1.7L3 12l5.5-1.9c.8-.3 1.4-.9 1.7-1.7z',
   play: 'M7 4.5v15a.8.8 0 0 0 1.2.7l12.3-7.5a.8.8 0 0 0 0-1.4L8.2 3.8A.8.8 0 0 0 7 4.5z',
   chev: 'M9 18l6-6-6-6',
@@ -2041,6 +2386,7 @@ VIEWS.food = () => {
       ${bar('Fett', t.f, st.fat, 'var(--orange)')}
     </div>
   </div>
+  ${energyCard()}
   ${prepCard()}
   ${!items.length && S.foods.some(f => f.date === addDays(d, -1)) ? `<button class="btn block ghost" data-act="copyDay">⧉ Vortag kopieren</button>` : ''}
   ${Object.entries(MEALS).map(([k, name]) => {
@@ -2120,6 +2466,7 @@ function workoutLogger() {
   <div class="card">
     <input class="wk-name" data-bind="name" value="${esc(a.name)}">
     <div class="muted small"><span data-elapsed>${mmss((Date.now() - a.start) / 1000)}</span> · ${done}/${total} Sätze erledigt</div>
+    <button class="btn block gym-btn" data-act="gymOpen">${ic('screen')} Gym-Modus starten</button>
     <div class="row" style="margin-top:10px">
       <button class="btn ghost danger" data-act="cancelWorkout">Verwerfen</button>
       <button class="btn primary grow" data-act="finishWorkout">✓ Training beenden</button>
@@ -2315,12 +2662,7 @@ VIEWS.more = () => {
     ${notif === 'default' ? '<button class="btn block" data-act="askNotif">Benachrichtigungen erlauben</button>' : notif === 'granted' ? '<div class="small up">Benachrichtigungen sind aktiv.</div>' : notif === 'denied' ? '<div class="small muted">Benachrichtigungen sind im Browser blockiert.</div>' : ''}
   </div>
 
-  <div class="card">
-    <div class="card-head"><h2>Übungen</h2><button class="btn sm" data-act="editExercise">+ Neu</button></div>
-    <p class="small muted" style="margin-top:0">Tippe auf eine Übung, um Wdh-Bereich, Steigerung & Pause einzustellen.</p>
-    <div class="list">${[...S.exercises].sort((a, b) => a.muscle.localeCompare(b.muscle) || a.name.localeCompare(b.name)).map(ex => `<div class="item tap" data-act="openExercise" data-id="${ex.id}">
-      <div class="t"><b>${esc(ex.name)}</b><span>${esc(ex.muscle)} · ${ex.sets}× ${ex.repMin}–${ex.repMax} · +${fmt(ex.inc, 2)} kg</span></div><span class="muted">›</span></div>`).join('')}</div>
-  </div>
+  ${libraryCard()}
 
   <div class="card">
     <h2>Daten</h2>
@@ -2576,11 +2918,7 @@ async function scanStart() {
 function stopScan() { if (!scan) return; clearInterval(scan.timer); scan.stream.getTracks().forEach(t => t.stop()); scan = null; $('#scanVideo')?.classList.add('hidden'); }
 
 /* ---- Übungen ---- */
-function exercisePicker() {
-  openSheet(`<h2>Übung hinzufügen</h2><input id="exq" type="search" placeholder="Suchen …" autocomplete="off"><div id="exres" style="margin-top:10px"></div>
-    <button class="btn block" style="margin-top:10px" data-act="editExercise" data-pick="1">+ Neue Übung anlegen</button>`);
-  renderExPicker();
-}
+function exercisePicker() { exLibrary('workout'); }
 function renderExPicker() {
   const q = ($('#exq')?.value || '').toLowerCase();
   $('#exres').innerHTML = `<div class="list">${S.exercises.filter(e => !q || e.name.toLowerCase().includes(q) || e.muscle.toLowerCase().includes(q) || (e.pm || []).some(m => mName(m).toLowerCase().includes(q)))
@@ -2615,6 +2953,7 @@ function exerciseEditSheet(id, fromPicker) {
     <label class="f"><span>Name</span><input id="e_name" value="${esc(ex.name)}"></label>
     <div class="fl"><span>Hauptmuskeln (zählen 1 Satz)</span><div class="chips" id="em_pm"></div></div>
     <div class="fl"><span>Hilfsmuskeln (zählen ½ Satz)</span><div class="chips" id="em_sm"></div></div>
+    <label class="f"><span>Gerät</span><select id="e_eq">${Object.entries(EQ).map(([k, l]) => `<option value="${k}" ${(ex.eq || 'other') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div class="grid2">
       <label class="f"><span>Ziel-Sätze</span><input id="e_sets" inputmode="numeric" value="${ex.sets}"></label>
       <label class="f"><span>Wdh. min</span><input id="e_repMin" inputmode="numeric" value="${ex.repMin}"></label>
@@ -2650,10 +2989,7 @@ function renderRoutineSheet(keep) {
       <div class="t"><b>${i + 1}. ${esc(ex?.name || '?')}</b><span>${(ex?.pm || []).map(mName).join(', ')}</span></div>
       <div class="stepper"><button data-act="rSets" data-i="${i}" data-d="-1">−</button><b>${n}</b><button data-act="rSets" data-i="${i}" data-d="1">+</button></div>
       ${i ? `<button class="x" data-act="rMove" data-i="${i}">↑</button>` : ''}<button class="x" data-act="rDel" data-i="${i}">×</button></div>`; }).join('')}</div>` : '<div class="empty small">Noch keine Übungen.</div>'}
-    <select id="r_add" style="margin-top:10px"><option value="">+ Übung hinzufügen …</option>${REGIONS.map(rg => {
-      const xs = S.exercises.filter(e => MUSCLE[e.pm?.[0]]?.region === rg).sort((a, b) => a.name.localeCompare(b.name));
-      return xs.length ? `<optgroup label="${rg}">${xs.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>` : '';
-    }).join('')}</select>
+    <button class="btn block" style="margin-top:12px" data-act="rAddLib">+ Übung aus der Bibliothek</button>
     ${top.length ? `<h3>Volumen dieses Tages (Sätze)</h3><div class="chips">${top.map(([m, v]) => `<span class="chip">${mName(m)} ${fmt(v, 1)}</span>`).join('')}</div>` : ''}
     <div class="sheet-actions">${RC.id ? '<button class="btn danger" data-act="delRoutine">Löschen</button>' : ''}<button class="btn" data-act="${RC.back ? 'rBack' : 'closeSheet'}">${RC.back ? '‹ Zurück' : 'Abbrechen'}</button><button class="btn primary" data-act="saveRoutine">Speichern</button></div>`);
   $('#sheet .sheet-panel').scrollTop = scroll;
@@ -2722,7 +3058,8 @@ function tickRest() {
   if (left <= 0) {
     UI.rest = null; el.classList.add('hidden'); beep(); navigator.vibrate?.([200, 100, 200]);
     if (document.hidden) notify('Pause vorbei!', 'Nächster Satz – los geht\'s');
-    else toast('Pause vorbei – nächster Satz!');
+    else if (!GM) toast('Pause vorbei – nächster Satz!');
+    gymRestEnded();
     return;
   }
   el.classList.remove('hidden'); el.classList.toggle('ending', left < 10);
@@ -2768,6 +3105,57 @@ function download(blob, name) {
 /* ---------- Actions ---------- */
 const A = {
   applyUpdate,
+  // Bibliothek
+  openLibrary: () => exLibrary('manage'),
+  lbReg: el => { LB.region = el.dataset.r; LB.muscle = null; renderLib(); },
+  lbMus: el => { LB.muscle = el.dataset.m || null; renderLib(); },
+  lbEq: el => { LB.eq = el.dataset.k; renderLib(); },
+  lbPick: el => {
+    const id = el.dataset.id;
+    if (LB.mode === 'workout') {
+      if (!S.active) return;
+      S.active.entries.push(newEntry(exById(id))); save(); closeSheet(); render();
+      if (GM) { GM.ei = S.active.entries.length - 1; renderGym(); } else window.scrollTo(0, document.body.scrollHeight);
+      toast(`✓ ${exById(id).name} hinzugefügt`);
+    } else if (LB.mode === 'routine') {
+      if (!RC.exIds.includes(id)) RC.exIds.push(id);
+      renderRoutineSheet();
+    } else exerciseSheet(id);
+  },
+  lbBack: () => renderRoutineSheet(),
+  rAddLib: () => { RC.name = $('#r_name')?.value ?? RC.name; exLibrary('routine'); },
+  // Gym-Modus
+  gymOpen: () => gymOpen(),
+  gymClose: () => gymClose(),
+  gymVoice: () => { S.settings.gymVoice = !S.settings.gymVoice; save(); renderGym(); if (S.settings.gymVoice) speak('Sprachansage an'); },
+  gymGoto: el => { const i = +el.dataset.i; if (i >= 0 && i < S.active.entries.length) { GM.ei = i; renderGym(); } },
+  gymAdj: el => {
+    const e = S.active.entries[GM.ei], ex = exById(e.exId), x = e.sets.find(s => !s.done); if (!x) return;
+    const d = +el.dataset.d;
+    if (el.dataset.f === 'w') x.w = Math.max(0, roundTo((x.w || 0) + d * (ex.inc || 2.5), 0.25));
+    else x.r = Math.max(0, (x.r ?? x.t ?? ex.repMin) + d);
+    navigator.vibrate?.(10); save(); renderGym();
+  },
+  gymDone: () => {
+    const e = S.active.entries[GM.ei], ex = exById(e.exId), si = e.sets.findIndex(s => !s.done); if (si < 0) return;
+    const x = e.sets[si];
+    x.r = x.r ?? x.t ?? ex.repMin; x.w = x.w ?? 0; x.done = true;
+    e.sets.slice(si + 1).forEach(n => { if (!n.done) n.w = x.w; });
+    navigator.vibrate?.(30); save();
+    if (!e.sets.some(s => !s.done)) { const nx = gymFirstOpen(GM.ei); if (nx != null) GM.ei = nx; }
+    if (gymFirstOpen() == null) { UI.rest = null; tickRest(); renderGym(); speak('Stark! Alle Sätze erledigt.'); return; }
+    startRest(ex.rest || 90); GM.warned = false; renderGym();
+    speak(`Satz geschafft. ${Math.round((ex.rest || 90) / 60 * 2) / 2 >= 1 ? `${fmt(Math.round((ex.rest || 90) / 30) / 2, 1).replace(',', ' Komma ')} Minuten` : `${ex.rest} Sekunden`} Pause.`);
+  },
+  gymFinish: () => { gymClose(); finishWorkout(); },
+  // Kalorienbedarf
+  energySheet: () => energySheet(),
+  applyKcal: () => {
+    const r = kcalRecommendation(); if (!r) return;
+    const old = S.settings.kcal; applyKcalGoal(r.kcal); save(); closeSheet(); render();
+    toast(`Kalorienziel: ${fmt(old)} → ${fmt(r.kcal)} kcal`);
+  },
+  setPace: el => { S.settings.pace = +el.dataset.v; save(); render(); energySheet(); },
   // Gewohnheiten
   habitSheet: () => habitSheet(),
   habitToggle: el => {
@@ -3055,13 +3443,13 @@ const A = {
       name, muscle: MUSCLE[[...EC.pm][0]].region, pm: [...EC.pm], sm: [...EC.sm], sets: Math.max(1, num($('#e_sets').value) || 3),
       repMin: Math.max(1, num($('#e_repMin').value) || 8), repMax: Math.max(1, num($('#e_repMax').value) || 12),
       inc: Math.max(0.25, num($('#e_inc').value) || 2.5), rest: Math.max(0, num($('#e_rest').value) || 90),
-      start: num($('#e_start').value) || 0, barbell: $('#e_barbell').checked,
+      start: num($('#e_start').value) || 0, barbell: $('#e_barbell').checked, eq: $('#e_eq').value,
     };
     if (v.repMax < v.repMin) [v.repMin, v.repMax] = [v.repMax, v.repMin];
     let id = el.dataset.id;
     if (id) Object.assign(exById(id), v); else { id = uid(); S.exercises.push({ id, ...v }); }
     save();
-    if (el.dataset.pick && S.active) { S.active.entries.push(newEntry(exById(id))); save(); closeSheet(); render(); }
+    if (el.dataset.pick && S.active) { S.active.entries.push(newEntry(exById(id))); save(); closeSheet(); render(); if (GM) renderGym(); }
     else { render(); exerciseSheet(id); }
   },
   delExercise: el => { if (confirm('Übung löschen?')) { S.exercises = S.exercises.filter(e => e.id !== el.dataset.id); save(); closeSheet(); render(); } },
@@ -3143,7 +3531,7 @@ const A = {
   openWorkout: el => workoutSheet(el.dataset.id),
   delWorkout: el => { if (confirm('Training aus dem Verlauf löschen?')) { S.workouts = S.workouts.filter(w => w.id !== el.dataset.id); save(); closeSheet(); render(); } },
   restAdd: el => { if (UI.rest) { UI.rest.end += +el.dataset.s * 1000; UI.rest.total = Math.max(1, UI.rest.total + +el.dataset.s); tickRest(); } },
-  restSkip: () => { UI.rest = null; tickRest(); },
+  restSkip: () => { UI.rest = null; tickRest(); if (GM) { GM.warned = false; renderGym(); } },
 
   calcGoals: () => {
     readSettingsForm();
@@ -3245,6 +3633,7 @@ document.addEventListener('input', e => {
   else if (t.dataset.exnote) { const ex = exById(t.dataset.exnote); if (ex) { ex.note = t.value.trim(); save(); } }
   else if (t.id === 'fr_n') updateRecipePreview();
   else if (t.id === 'rq') { RE_EXTRA = []; renderRecipeSearch(); }
+  else if (t.id === 'lq') renderLib();
   else if (t.dataset.rig) { RE.items[+t.dataset.rig].g = num(t.value) || 0; reTotals(); }
   else if (t.id === 're_por') reTotals();
   else if (t.id === 'camOp') { const g = $('#camG'); if (g) g.style.opacity = t.value / 100; $('#camOpV').textContent = t.value + ' %'; }
@@ -3268,6 +3657,7 @@ document.addEventListener('change', e => {
   if (e.target.dataset?.pbwd != null || e.target.id === 'pb_per' || e.target.id === 'pb_active') { syncPB(); renderProgramSheet(true); }
   if (e.target.id === 'pr_kind') prKindFields();
   if (e.target.id === 'gl_ex') glHint();
+  if (e.target.id === 'ek_auto') { S.settings.autoKcal = e.target.checked; save(); render(); if (e.target.checked) { S.meta.autoKcalWeek = null; autoKcalCheck(); } }
   if (e.target.id === 'photoFile' && e.target.files.length) { addPhotos([...e.target.files]); e.target.value = ''; }
   if (e.target.id === 'cmp_a' || e.target.id === 'cmp_b') compareSheet($('#cmp_a').value, $('#cmp_b').value);
   if (e.target.id === 'importFile' && e.target.files[0]) {
@@ -3292,10 +3682,11 @@ document.addEventListener('keydown', e => {
 setInterval(() => {
   $$('[data-elapsed]').forEach(el => { if (S.active) el.textContent = mmss((Date.now() - S.active.start) / 1000); });
   if (UI.rest) tickRest();
+  if (GM) gymTick();
   if (new Date().getSeconds() === 0) checkWeighReminder();
 }, 1000);
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) { checkUpdate(); if (UI.foodDate > today()) UI.foodDate = today(); tickRest(); if (!sheetOpen()) render(); checkWeighReminder(); }
+  if (!document.hidden) { checkUpdate(); if (GM) gymWake(); if (UI.foodDate > today()) UI.foodDate = today(); tickRest(); if (!sheetOpen()) render(); checkWeighReminder(); }
 });
 
 /* ---------- App-Updates ---------- */
@@ -3328,5 +3719,7 @@ function applyUpdate() {
 render();
 checkWeighReminder();
 loadPhotos();
+recordTdee();
+autoKcalCheck();
 setupUpdates();
 navigator.storage?.persist?.();

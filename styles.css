@@ -443,3 +443,53 @@ video.scan { width: 100%; border-radius: 18px; background: #000; aspect-ratio: 4
 /* Teilen & Tipp */
 .share-prev { width: 100%; border-radius: 20px; display: block; border: 1px solid var(--line2); }
 .tipcard { background: linear-gradient(180deg, rgba(214, 182, 128, .05), transparent), var(--card); }
+
+/* Übungsbibliothek */
+.lb-chips { margin: 12px 0 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.lb-chips::-webkit-scrollbar { display: none; }
+.lb-chips .chip { white-space: nowrap; flex: none; }
+.lb-chips.sub .chip { font-size: 12px; padding: 5px 11px; }
+.lb-chips:empty { display: none; }
+
+/* Gym-Modus */
+.gym-btn { margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; border-color: rgba(214, 182, 128, .35); color: var(--accent); }
+.gym-btn .ic { width: 18px; height: 18px; }
+body.gym-on { overflow: hidden; }
+body.gym-on .restbar, body.gym-on .tabbar { display: none; }
+.gym {
+  position: fixed; inset: 0; z-index: 40; overflow-y: auto;
+  background: radial-gradient(120% 60% at 50% -10%, #1d1910 0%, var(--bg) 60%), var(--bg);
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 22px calc(24px + var(--safe-b)); display: flex; flex-direction: column;
+  animation: fadein .3s var(--ease);
+}
+.gym-top { display: flex; align-items: center; gap: 12px; max-width: 520px; width: 100%; margin: 0 auto; }
+.gym-ic { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line2); background: rgba(255, 255, 255, .03); display: grid; place-items: center; color: var(--muted); flex: none; }
+.gym-prog { flex: 1; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.gym-prog i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); border-radius: 99px; transition: width .4s var(--ease); }
+.gym-t { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+.gym-ex, .gym-rest { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 520px; width: 100%; margin: 0 auto; padding: 18px 0 8px; gap: 6px; }
+.gym-ex h1 { font-size: 34px; margin: 6px 0 2px; }
+.gym-val { margin-top: 22px; }
+.gym-step { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 8px 0 4px; }
+.gym-step button { width: 68px; height: 68px; border-radius: 50%; border: 1px solid var(--line2); background: linear-gradient(180deg, #1b1b1e, #131315); font-size: 30px; font-weight: 300; color: var(--text); flex: none; }
+.gym-step button:active { transform: scale(.93); background: var(--accent-soft); }
+.gym-step b { font-size: 64px; font-weight: 200; letter-spacing: -.04em; font-variant-numeric: tabular-nums; text-align: center; flex: 1; line-height: 1; }
+.gym-step b small { font-size: 18px; color: var(--muted); font-weight: 400; margin-left: 4px; letter-spacing: 0; }
+.gym-delta { text-align: center; min-height: 20px; margin-top: 6px; }
+.gym-delta .lv { font-size: 14px; display: inline; }
+.gym-done {
+  margin-top: 22px; width: 100%; padding: 22px; border: 0; border-radius: 999px; font-size: 18px; font-weight: 600; color: var(--accent-ink);
+  background: linear-gradient(180deg, #e8cd9a, var(--accent2)); box-shadow: 0 14px 34px rgba(214, 182, 128, .22), inset 0 1px 0 rgba(255, 255, 255, .4);
+}
+.gym-done:active { transform: scale(.98); }
+.gym-nav { display: flex; justify-content: space-between; margin-top: 14px; }
+.gym-nav button:disabled { opacity: .3; }
+.gym-rest { align-items: center; text-align: center; gap: 18px; }
+.gym-ring { position: relative; width: min(72vw, 300px); aspect-ratio: 1; }
+.gym-ring svg { width: 100%; height: 100%; }
+.gym-ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 72px; font-weight: 200; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.gym-next { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; padding: 16px 22px; border: 1px solid var(--line); border-radius: 22px; background: rgba(255, 255, 255, .025); min-width: 260px; }
+.gym-next b { font-size: 18px; font-weight: 550; }
+.gym-next span:last-child { color: var(--muted); font-size: 14px; }
+.gym-end { align-items: center; text-align: center; }
+.gym-end > .ic { width: 52px; height: 52px; color: var(--accent); }
