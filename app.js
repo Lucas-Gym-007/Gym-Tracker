@@ -24,6 +24,7 @@ const weekStart = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDat
 const mmss = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return (h ? h + ':' + pad(m) : m) + ':' + pad(s % 60); };
 const e1rm = (w, r) => (!r ? 0 : r === 1 ? w : w * (1 + r / 30));
 const setScore = s => e1rm(s.w || 0, s.r) + (s.w ? 0 : s.r * 0.001);
+const WK = sets => sets.filter(s => s.type !== 'warm'); // Arbeitssätze (ohne Aufwärmen)
 
 const DAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 const DAY_ICS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
@@ -407,7 +408,7 @@ const DEFAULTS = () => ({
   },
   foods: [], favFoods: [], water: {}, weights: [], measures: [], prs: [],
   cardio: [], mealTemplates: [], recipes: [], goals: [],
-  habits: [], habitLog: {}, shopping: [], prep: [], checkins: [], tdeeHist: [], customFoods: [],
+  habits: [], habitLog: {}, shopping: [], prep: [], checkins: [], tdeeHist: [], customFoods: [], weekPlan: null,
   exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
   routines: DEFAULT_ROUTINES.map(r => ({ ...r, exIds: [...r.exIds] })),
   programs: mkPrograms(), activeProgram: 'ppl',
@@ -591,7 +592,7 @@ function coachTip() {
 function exHistory(exId) { // neueste zuerst
   const out = [];
   for (const w of [...S.workouts].sort((a, b) => b.start - a.start))
-    for (const e of w.entries) if (e.exId === exId && e.sets.length) out.push({ date: w.date, start: w.start, sets: e.sets, target: e.target });
+    for (const e of w.entries) if (e.exId === exId && WK(e.sets).length) out.push({ date: w.date, start: w.start, sets: WK(e.sets), target: e.target });
   return out;
 }
 function workSets(sess) { const wk = Math.max(...sess.sets.map(s => s.w || 0)); return { wk, sets: sess.sets.filter(s => (s.w || 0) === wk) }; }
@@ -653,7 +654,7 @@ function startWorkout(routineId) {
   const r = S.routines.find(x => x.id === routineId);
   S.active = {
     id: uid(), name: r ? r.name : 'Freies Training', routineId: r?.id || null, start: Date.now(), date: today(),
-    entries: r ? r.exIds.map(exById).filter(Boolean).map(ex => newEntry(ex, daySets(r, ex))) : [],
+    entries: r ? r.exIds.map(exById).filter(Boolean).map(ex => { const e = newEntry(ex, daySets(r, ex)); if (r.warm?.[ex.id]) e.sets.unshift(...warmupSets(ex, e.sets[0]?.w)); return e; }) : [],
   };
   save(); UI.tab = 'train'; render(); window.scrollTo(0, 0);
 }
@@ -686,7 +687,7 @@ function addVol(vol, ex, n) {
 function weekVolume(d) { // Hauptmuskel = 1 Satz, Hilfsmuskel = ½ Satz
   const ws = weekStart(d).getTime(), we = ws + 7 * 864e5, vol = emptyVol();
   for (const w of S.workouts) if (w.start >= ws && w.start < we)
-    for (const e of w.entries) { const ex = exById(e.exId); if (ex) addVol(vol, ex, e.sets.length); }
+    for (const e of w.entries) { const ex = exById(e.exId); if (ex) addVol(vol, ex, WK(e.sets).length); }
   return vol;
 }
 const daySets = (r, ex) => r.sets?.[ex.id] ?? ex.sets;
@@ -1070,7 +1071,7 @@ function muscleSheet(m) {
   for (const w of S.workouts) if (w.start >= from) for (const e of w.entries) {
     const ex = exById(e.exId); if (!ex) continue;
     const f = (ex.pm || []).includes(m) ? 1 : (ex.sm || []).includes(m) ? 0.5 : 0;
-    if (f) contrib[ex.id] = (contrib[ex.id] || 0) + e.sets.length * f;
+    if (f) contrib[ex.id] = (contrib[ex.id] || 0) + WK(e.sets).length * f;
   }
   const cs = Object.entries(contrib).sort((a, b) => b[1] - a[1]);
   const exs = S.exercises.filter(e => (e.pm || []).includes(m) || (e.sm || []).includes(m))
@@ -1180,7 +1181,7 @@ const prKey = p => p.kind + '|' + (p.exId || p.title.trim().toLowerCase());
 function autoPRs() { // Bestwert je Übung + jedes Mal, wenn er im Training übertroffen wurde
   const best = {}, events = [];
   for (const w of [...S.workouts].sort((a, b) => a.start - b.start)) for (const e of w.entries) {
-    const s = bestSet(e.sets); if (!s) continue;
+    const s = bestSet(WK(e.sets)); if (!s) continue;
     const prev = best[e.exId];
     if (!prev || setScore(s) > setScore(prev.set) + 1e-6) {
       if (prev) events.push({ date: w.date, ts: w.start, exId: e.exId, set: s });
@@ -1423,8 +1424,8 @@ function periodOf(mode, off) {
 function periodStats(s, e) {
   const st = S.settings, sY = ymd(s), eY = ymd(e), sm = s.getTime(), em = e.getTime();
   const ws = S.workouts.filter(w => w.start >= sm && w.start < em);
-  const setsOf = w => w.entries.reduce((b, x) => b + x.sets.length, 0);
-  const volOf = w => w.entries.reduce((b, x) => b + x.sets.reduce((c, z) => c + (z.w || 0) * z.r, 0), 0);
+  const setsOf = w => w.entries.reduce((b, x) => b + WK(x.sets).length, 0);
+  const volOf = w => w.entries.reduce((b, x) => b + WK(x.sets).reduce((c, z) => c + (z.w || 0) * z.r, 0), 0);
   const sets = ws.reduce((a, w) => a + setsOf(w), 0), vol = ws.reduce((a, w) => a + volOf(w), 0);
   const dur = ws.reduce((a, w) => a + (w.end - w.start), 0) / 60000;
   const cs = cardioInRange(sY, eY);
@@ -1444,7 +1445,7 @@ function periodStats(s, e) {
   const waistD = mIn.length && (mBefore || mIn.length > 1) ? mIn.at(-1).waist - (mBefore || mIn[0]).waist : null;
   // Muskeln
   const mv = emptyVol();
-  for (const w of ws) for (const x of w.entries) { const ex = exById(x.exId); if (ex) addVol(mv, ex, x.sets.length); }
+  for (const w of ws) for (const x of w.entries) { const ex = exById(x.exId); if (ex) addVol(mv, ex, WK(x.sets).length); }
   const top = Object.entries(mv).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   const none = ws.length ? MUSCLE_LIST.map(([m]) => m).filter(m => !mv[m]) : [];
   // Highlight
@@ -1598,7 +1599,7 @@ function badgeCtx() {
   let prot = 0; for (const d of days) if (dayTotals(d).p >= S.settings.protein * 0.95) prot++;
   return {
     w: S.workouts.length, streak: weekStreak(), prs: prFeed().length,
-    vol: S.workouts.reduce((a, w) => a + w.entries.reduce((b, x) => b + x.sets.reduce((c, z) => c + (z.w || 0) * z.r, 0), 0), 0),
+    vol: S.workouts.reduce((a, w) => a + w.entries.reduce((b, x) => b + WK(x.sets).reduce((c, z) => c + (z.w || 0) * z.r, 0), 0), 0),
     bench: bestW('bench'), squat: bestW('squat'), dead: bestW('deadlift'), benchBw: bw ? bestW('bench') / bw : 0,
     foodDays: days.size, protDays: prot, recipes: S.recipes.length, cardioN: S.cardio.length, cardioKm: S.cardio.reduce((a, c) => a + (c.km || 0), 0),
     weighs: S.weights.length, photos: PH.ready ? PH.list.length : 0, goalsDone: S.goals.filter(g => g.done).length,
@@ -1790,7 +1791,7 @@ function liveDelta(x, p) {
   return '<em class="lv">= gleich</em>';
 }
 function liveSummary(e, prev) {
-  const cur = e.sets.reduce((a, x) => { const r = x.r ?? (x.done ? x.t : null); return r ? a + (x.w || 0) * r : a; }, 0);
+  const cur = WK(e.sets).reduce((a, x) => { const r = x.r ?? (x.done ? x.t : null); return r ? a + (x.w || 0) * r : a; }, 0);
   if (!prev) return cur ? `Heute <b>${fmt(cur)} kg</b> Volumen` : '';
   const pv = prev.sets.reduce((a, x) => a + (x.w || 0) * x.r, 0);
   if (!cur) return `Letztes Mal ${fmt(pv)} kg Volumen`;
@@ -1800,7 +1801,7 @@ function liveSummary(e, prev) {
 function updateLive(ei) {
   const e = S.active?.entries[ei]; if (!e) return;
   const prev = exHistory(e.exId)[0];
-  e.sets.forEach((x, si) => { const el = $(`#lv_${ei}_${si}`); if (el) el.innerHTML = liveDelta(x, prev?.sets[si]); });
+  e.sets.forEach((x, si) => { const el = $(`#lv_${ei}_${si}`); if (el) el.innerHTML = liveDelta(x, x.type === 'warm' ? null : prev?.sets[workIdx(e, si)]); });
   const s = $(`#lvs_${ei}`); if (s) s.innerHTML = liveSummary(e, prev);
 }
 
@@ -2012,14 +2013,14 @@ async function openShare(spec, filename) {
 }
 function workoutShareSpec(id) {
   const w = S.workouts.find(x => x.id === id); if (!w) return null;
-  const vol = w.entries.reduce((a, e) => a + e.sets.reduce((b, s) => b + (s.w || 0) * s.r, 0), 0);
-  const nSets = w.entries.reduce((a, e) => a + e.sets.length, 0);
+  const vol = w.entries.reduce((a, e) => a + WK(e.sets).reduce((b, s) => b + (s.w || 0) * s.r, 0), 0);
+  const nSets = w.entries.reduce((a, e) => a + WK(e.sets).length, 0);
   const prEx = new Set(autoPRs().events.filter(ev => ev.date === w.date).map(ev => ev.exId));
   return {
     eyebrow: `Workout · ${fmtDate(w.date, { weekday: 'long', day: 'numeric', month: 'long' })}`,
     title: w.name.split(' (')[0], sub: `${mmss((w.end - w.start) / 1000)} Dauer · ${w.entries.length} Übungen`,
     stats: [['Volumen', vol >= 10000 ? `${fmt(vol / 1000, 1)} t` : `${fmt(vol)} kg`], ['Sätze', fmt(nSets)], ['Rekorde', fmt(prEx.size)]],
-    lines: w.entries.map(e => { const b = bestSet(e.sets); return [exById(e.exId)?.name || 'Übung', `${e.sets.length}× · ${prLabel({ kind: 'lift', ...b })}${prEx.has(e.exId) ? '  PR' : ''}`, prEx.has(e.exId)]; }),
+    lines: w.entries.filter(e => WK(e.sets).length).map(e => { const b = bestSet(WK(e.sets)); return [exById(e.exId)?.name || 'Übung', `${WK(e.sets).length}× · ${prLabel({ kind: 'lift', ...b })}${prEx.has(e.exId) ? '  PR' : ''}`, prEx.has(e.exId)]; }),
   };
 }
 function statsShareSpec() {
@@ -2190,9 +2191,9 @@ function renderGym() {
     } else if (!ex || si < 0) {
       body = `<div class="gym-ex gym-end"><h1>${esc(ex?.name || 'Übung')} erledigt</h1><button class="gym-done" data-act="gymGoto" data-i="${gymFirstOpen(ei)}">Nächste Übung</button></div>`;
     } else {
-      const x = e.sets[si], prev = exHistory(ex.id)[0], p = prev?.sets[si], r = x.r ?? x.t ?? ex.repMin;
+      const x = e.sets[si], prev = exHistory(ex.id)[0], p = x.type === 'warm' ? null : prev?.sets[workIdx(e, si)], r = x.r ?? x.t ?? ex.repMin;
       body = `<div class="gym-ex">
-        <span class="label">Übung ${ei + 1} / ${a.entries.length} · Satz ${si + 1} / ${e.sets.length}</span>
+        <span class="label">Übung ${ei + 1} / ${a.entries.length} · ${x.type === 'warm' ? `Aufwärmsatz ${e.sets.slice(0, si + 1).filter(z => z.type === 'warm').length}` : `Satz ${workIdx(e, si) + 1} / ${WK(e.sets).length}`}${x.type === 'drop' ? ' · Drop' : x.type === 'fail' ? ' · bis Versagen' : ''}</span>
         <h1>${esc(ex.name)}</h1>
         <div class="small muted">${p ? `Letztes Mal ${fmt(p.w, 2)} kg × ${p.r}` : 'Erstes Mal – sauber ausführen'}${ex.note ? ` · ${esc(ex.note)}` : ''}</div>
         <div class="gym-val"><span class="label">Gewicht</span><div class="gym-step"><button data-act="gymAdj" data-f="w" data-d="-1" aria-label="weniger">−</button><b>${fmt(x.w ?? 0, 2)}<small>kg</small></b><button data-act="gymAdj" data-f="w" data-d="1" aria-label="mehr">+</button></div>
@@ -2481,7 +2482,8 @@ function ideasSheet(tab) {
 function renderIdeas(keep) {
   const scroll = keep ? $('#sheet .sheet-panel').scrollTop : 0, st = S.settings;
   let body;
-  if (ID.tab === 'recipes') {
+  if (ID.tab === 'week') body = weekPlanView();
+  else if (ID.tab === 'recipes') {
     const list = RECIPE_IDEAS.filter(r => (ID.goal === 'all' || r.goals.includes(ID.goal)) && (ID.meal === 'all' || r.meal === ID.meal));
     body = `<div class="chips lb-chips">${[['all', 'Alle'], ...Object.entries(IDEA_GOALS)].map(([k, l]) => `<button class="chip ${ID.goal === k ? 'on' : ''}" data-act="idGoal" data-k="${k}">${l}</button>`).join('')}</div>
       <div class="chips lb-chips sub">${[['all', 'Alle Mahlzeiten'], ...Object.entries(IDEA_MEALS)].map(([k, l]) => `<button class="chip ${ID.meal === k ? 'on2' : ''}" data-act="idMeal" data-k="${k}">${l}</button>`).join('')}</div>
@@ -2508,7 +2510,7 @@ function renderIdeas(keep) {
       <div class="small muted" style="margin-top:10px">Die Portionen werden automatisch auf dein Kalorienziel skaliert (in Viertel-Portionen). Tippe ein Gericht an für Zutaten und Zubereitung.</div>`;
   }
   openSheet(`<h2>Rezeptideen & Tagespläne</h2>
-    <div class="seg"><button class="${ID.tab === 'recipes' ? 'on' : ''}" data-act="idTab" data-k="recipes">Rezepte · ${RECIPE_IDEAS.length}</button><button class="${ID.tab === 'plans' ? 'on' : ''}" data-act="idTab" data-k="plans">Tagespläne</button></div>
+    <div class="seg"><button class="${ID.tab === 'recipes' ? 'on' : ''}" data-act="idTab" data-k="recipes">Rezepte</button><button class="${ID.tab === 'plans' ? 'on' : ''}" data-act="idTab" data-k="plans">Tagesplan</button><button class="${ID.tab === 'week' ? 'on' : ''}" data-act="idTab" data-k="week">Woche</button></div>
     ${body}
     <div class="sheet-actions"><button class="btn" data-act="closeSheet">Schließen</button></div>`);
   $('#sheet .sheet-panel').scrollTop = scroll;
@@ -2529,7 +2531,189 @@ function ideaSheet(id) {
 }
 function ideasCard() {
   return `<div class="card tap-card" data-act="ideas"><div class="card-head" style="margin-bottom:8px"><span class="label">Rezeptideen & Tagespläne</span>${ic('sparkle')}</div>
-    <div class="small">${RECIPE_IDEAS.length} eiweißreiche Rezepte für Cut, Maintain & Bulk – und fertige Tagespläne von 1.600 bis 3.500 kcal.</div></div>`;
+    <div class="small">${RECIPE_IDEAS.length} eiweißreiche Rezepte für Cut, Maintain & Bulk, fertige Tagespläne von 1.600 bis 3.500 kcal und ein Wochen-Mealplan.</div></div>`;
+}
+
+/* =====================================================================
+   Was passt noch? · Wochen-Mealplan · Satz-Typen & Aufwärmsätze
+   ===================================================================== */
+
+/* ---------- Satz-Typen ---------- */
+const SET_TYPES = ['', 'warm', 'drop', 'fail'];
+const SET_TYPE_NAME = { '': 'Arbeitssatz', warm: 'Aufwärmsatz', drop: 'Drop-Satz', fail: 'Bis Muskelversagen' };
+const workIdx = (e, si) => e.sets.slice(0, si).filter(s => s.type !== 'warm').length;
+const setLabel = (x, wi) => (x.type === 'warm' ? 'W' : x.type === 'drop' ? 'D' : x.type === 'fail' ? 'F' : wi + 1);
+/* Aufwärm-Rampe zum ersten Arbeitsgewicht */
+function warmupSets(ex, w) {
+  if (!ex || !w || w <= 0) return [];
+  const bar = S.settings.bar || 20, step = (ex.inc || 2.5) >= 2.5 ? 2.5 : ex.inc || 1;
+  const scheme = ex.barbell ? (w >= 60 ? [[0.4, 8], [0.6, 5], [0.8, 3]] : [[0.5, 8], [0.75, 4]]) : (w >= 20 ? [[0.5, 10], [0.75, 5]] : [[0.6, 8]]);
+  const out = [];
+  if (ex.barbell && w >= 60) out.push({ w: bar, r: null, t: 10, done: false, type: 'warm' });
+  for (const [pct, r] of scheme) {
+    const ww = Math.max(ex.barbell ? bar : 0, roundTo(w * pct, step));
+    if (ww >= w || out.some(o => o.w === ww)) continue;
+    out.push({ w: ww, r: null, t: r, done: false, type: 'warm' });
+  }
+  return out;
+}
+
+/* ---------- Was passt noch? ---------- */
+const READY_CATS = ['Eier & Milchprodukte', 'Aufschnitt', 'Sportnahrung', 'Obst', 'Nüsse, Samen & Aufstriche', 'Brot & Getreide', 'Süßes & Snacks', 'Hülsenfrüchte & Tofu'];
+let FIT = [];
+function remainingFor(date) {
+  const st = S.settings, t = dayTotals(date);
+  return { kcal: st.kcal - t.kcal, p: st.protein - t.p, c: st.carbs - t.c, f: st.fat - t.f, date };
+}
+function fitSuggestions(date, n = 8) {
+  const R = remainingFor(date);
+  if (R.kcal < 80) return { R, list: [] };
+  const h = new Date().getHours(), share = date !== today() ? 1 : h < 10 ? 0.35 : h < 14 ? 0.5 : h < 18 ? 0.65 : 1;
+  const tk = Math.max(150, R.kcal * share);
+  const score = (k, p, c = 0, f = 0) => {
+    if (k > R.kcal * 1.05 + 20 || k < 60) return -1;
+    const pf = R.p > 5 ? Math.min(p, R.p) / R.p : 0.4;
+    const kf = 1 - Math.min(1, Math.abs(k - tk) / tk);
+    const over = (f > Math.max(0, R.f) + 10 ? 0.2 : 0) + (c > Math.max(0, R.c) + 25 ? 0.15 : 0); // Fett-/KH-Budget sprengen kostet Punkte
+    return pf * 0.5 + kf * 0.4 + Math.min(0.3, p * 4 / k) * 0.4 - over;
+  };
+  const cands = [];
+  const consider = (base, kind, extra, amounts) => {
+    let best = null;
+    for (const q of amounts) { const sc = score(base.kcal * q, base.p * q, base.c * q, base.f * q); if (sc >= 0 && (!best || sc > best.sc)) best = { q, sc }; }
+    if (best) cands.push({ kind, ...extra, q: best.q, sc: best.sc + (extra.bonus || 0), kcal: base.kcal * best.q, p: base.p * best.q, c: base.c * best.q, f: base.f * best.q });
+  };
+  for (const r of RECIPE_IDEAS) {
+    const bonus = (h < 10 && r.meal === 'breakfast') || (h >= 11 && share >= 0.5 && r.meal === 'main') || (share < 0.5 && h >= 10 && r.meal === 'snack') ? 0.06 : 0;
+    consider(ideaPer(r), 'idea', { r, name: r.name, bonus }, [0.5, 0.75, 1, 1.25, 1.5]);
+  }
+  for (const r of S.recipes) consider(perPortion(r), 'recipe', { r, name: r.name, bonus: 0.04 }, [0.5, 1, 1.5]);
+  for (const x of foodAll().filter(x => (x.own || READY_CATS.includes(x.cat)) && x.p * 4 / x.kcal >= 0.25 && x.kcal >= 40)) {
+    const g = x.portion?.g || 100, per = { kcal: x.kcal * g / 100, p: x.p * g / 100, c: x.c * g / 100, f: x.f * g / 100 };
+    consider(per, 'food', { x, name: x.name, g, bonus: x.own ? 0.03 : 0 }, [1, 2].filter(m => m * g <= 400));
+  }
+  cands.sort((a, b) => b.sc - a.sc);
+  const list = []; let foods = 0;
+  for (const c of cands) {
+    if (list.some(l => l.name === c.name)) continue;
+    if (c.kind === 'food' && foods >= 3) continue;
+    if (c.kind === 'food') foods++;
+    list.push(c); if (list.length >= n) break;
+  }
+  return { R, list };
+}
+const fitLabel = c => (c.kind === 'food' ? `${esc(c.name)} · ${fmt(c.g * c.q)} g` : `${esc(c.name)}${c.q !== 1 ? ` · ${fmt(c.q, 2)} Portion${c.q > 1 ? 'en' : ''}` : ''}`);
+function fitRows(list) {
+  return `<div class="list">${list.map((c, i) => `<div class="item ${c.kind === 'idea' ? 'tap' : ''}" ${c.kind === 'idea' ? `data-act="ideaOpen" data-id="${c.r.id}"` : ''}>
+    <div class="t"><b>${fitLabel(c)}</b><span>${fmt(c.kcal)} kcal · ${fmt(c.p)} g Protein · K ${fmt(c.c)} · F ${fmt(c.f)}</span></div>
+    <button class="icon-btn" data-act="fitAdd" data-i="${i}" aria-label="Eintragen">+</button></div>`).join('')}</div>`;
+}
+function fitCard(date) {
+  const st = S.settings, t = dayTotals(date);
+  if (!t.kcal && date !== today()) return '';
+  const { R, list } = fitSuggestions(date, 3); FIT = list;
+  if (R.kcal < 80) {
+    const over = -R.kcal;
+    return `<div class="card"><span class="label">Was passt noch?</span><div class="small" style="margin-top:8px">${over > 150 ? `Heute ${fmt(over)} kcal über dem Ziel – kein Problem, morgen geht's normal weiter.` : 'Punktlandung – dein Kalorienziel ist erreicht.'}${R.p > 15 ? ` Es fehlen noch ${fmt(R.p)} g Protein: ein Proteinshake oder Skyr passt notfalls.` : ''}</div></div>`;
+  }
+  return `<div class="card"><div class="card-head"><span class="label">Was passt noch?</span><button class="btn sm ghost" data-act="fitSheet">Mehr</button></div>
+    <div class="small muted">Noch offen: <b style="color:var(--text)">${fmt(R.kcal)} kcal</b> · ${fmt(Math.max(0, R.p))} g Protein · ${fmt(Math.max(0, R.c))} g KH · ${fmt(Math.max(0, R.f))} g Fett</div>
+    <div style="margin-top:12px">${list.length ? fitRows(list) : '<div class="empty small">Gerade nichts Passendes gefunden.</div>'}</div></div>`;
+}
+function fitSheet() {
+  const date = UI.tab === 'food' ? UI.foodDate : today(), { R, list } = fitSuggestions(date, 10); FIT = list;
+  openSheet(`<h2>Was passt noch?</h2>
+    <div class="grid3" style="margin-bottom:6px"><div class="stat"><b>${fmt(Math.max(0, R.kcal))}</b><span>kcal offen</span></div><div class="stat"><b>${fmt(Math.max(0, R.p))} g</b><span>Protein offen</span></div><div class="stat"><b>${fmt(Math.max(0, R.c))} / ${fmt(Math.max(0, R.f))}</b><span>KH / Fett (g)</span></div></div>
+    <div class="small muted" style="margin:8px 0 14px">Sortiert danach, wie gut Kalorien und Protein jetzt passen${date === today() ? ' – abhängig von der Uhrzeit bleibt Platz für spätere Mahlzeiten' : ''}.</div>
+    ${list.length ? fitRows(list) : '<div class="empty small">Dein Ziel ist erreicht.</div>'}
+    <div class="sheet-actions"><button class="btn" data-act="ideas">Alle Rezeptideen</button><button class="btn primary" data-act="closeSheet">Fertig</button></div>`);
+}
+
+/* ---------- Wochen-Mealplan ---------- */
+function fitPortions(kcals, target) {
+  const base = kcals.reduce((a, b) => a + b, 0), k = target / base;
+  const por = kcals.map(() => Math.min(3, Math.max(0.5, Math.round(k * 4) / 4)));
+  const total = () => por.reduce((a, q, i) => a + q * kcals[i], 0);
+  for (let it = 0; it < 40; it++) {
+    let best = null; const err = Math.abs(total() - target);
+    por.forEach((q, i) => [0.25, -0.25].forEach(d => {
+      const nq = q + d; if (nq < 0.5 || nq > 3) return;
+      const e = Math.abs(total() + d * kcals[i] - target), sc = e + Math.abs(nq - k) * 15;
+      if (e < err - 1 && (!best || sc < best.sc)) best = { i, nq, sc };
+    }));
+    if (!best) break; por[best.i] = best.nq;
+  }
+  return por;
+}
+function seededRandom(seed) { let s = (seed >>> 0) || 1; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+function shuffled(arr, rnd) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function wpPool(goal, meal) {
+  let p = RECIPE_IDEAS.filter(r => r.meal === meal && r.goals.includes(goal));
+  if (meal === 'snack' && p.length < 2) p = [...p, ...RECIPE_IDEAS.filter(r => r.meal === 'breakfast' && r.goals.includes(goal) && r.min <= 5)];
+  return p.length ? p : RECIPE_IDEAS.filter(r => r.meal === meal);
+}
+function genWeekPlan(goal, kcal, seed) {
+  const rnd = seededRandom(seed);
+  const bf = shuffled(wpPool(goal, 'breakfast'), rnd), sn = shuffled(wpPool(goal, 'snack'), rnd);
+  const mains = shuffled(wpPool(goal, 'main'), rnd), batch = mains.filter(r => r.portions > 1), single = mains.filter(r => r.portions === 1);
+  let k = 0;
+  const nextSingle = avoid => { for (let t = 0; t < single.length; t++) { const r = single[k++ % single.length]; if (!avoid.includes(r.id)) return r; } return single[0] || mains[0]; };
+  const days = [];
+  let prevDinner = null;
+  for (let d = 0; d < 7; d++) {
+    // Meal-Prep: ein Batch-Gericht Mo+Di, ein zweites Do+Fr
+    const b = d < 2 ? batch[0] : d === 3 || d === 4 ? batch[1] || null : null;
+    const lunch = b || nextSingle([prevDinner]);
+    const dinner = nextSingle([lunch.id, prevDinner]);
+    prevDinner = dinner.id;
+    days.push({ meals: [['breakfast', bf[d % bf.length].id], ['lunch', lunch.id], ['snack', sn[d % sn.length].id], ['dinner', dinner.id]] });
+  }
+  return { start: ymd(weekStart(new Date())), goal, kcal, seed, days, logged: {} };
+}
+function wpDay(plan, i) {
+  const day = plan.days[i], per = day.meals.map(([, id]) => ideaPer(ideaById(id)));
+  const por = fitPortions(per.map(x => x.kcal), plan.kcal);
+  const meals = day.meals.map(([meal, id], j) => ({ meal, r: ideaById(id), portions: por[j], kcal: per[j].kcal * por[j], p: per[j].p * por[j], c: per[j].c * por[j], f: per[j].f * por[j] }));
+  return { meals, tot: meals.reduce((a, m) => ({ kcal: a.kcal + m.kcal, p: a.p + m.p, c: a.c + m.c, f: a.f + m.f }), { kcal: 0, p: 0, c: 0, f: 0 }) };
+}
+const wpCurrent = () => (S.weekPlan && S.weekPlan.start === ymd(weekStart(new Date())) ? S.weekPlan : null);
+function wpPrep(plan) { // Batch-Gerichte der Woche mit benötigten Portionen
+  const need = {};
+  plan.days.forEach((_, i) => wpDay(plan, i).meals.forEach(m => { if (m.r.portions > 1) { need[m.r.id] ||= { r: m.r, portions: 0, days: [] }; need[m.r.id].portions += m.portions; if (!need[m.r.id].days.includes(i)) need[m.r.id].days.push(i); } }));
+  return Object.values(need);
+}
+const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+function weekPlanView() {
+  const st = S.settings, plan = wpCurrent();
+  const presets = [...new Set([...PLAN_KCAL, Math.round((st.kcal || 2000) / 50) * 50])].sort((a, b) => a - b);
+  const ctrl = `<div class="seg">${Object.entries(IDEA_GOALS).map(([k, l]) => `<button class="${ID.pgoal === k ? 'on' : ''}" data-act="idPGoal" data-k="${k}">${l}</button>`).join('')}</div>
+    <span class="label">Kalorien pro Tag</span>
+    <div class="chips lb-chips">${presets.map(v => `<button class="chip ${ID.kcal === v ? 'on' : ''}" data-act="idKcal" data-v="${v}">${fmt(v)}${v === Math.round((st.kcal || 2000) / 50) * 50 ? ' · Ziel' : ''}</button>`).join('')}</div>
+    <button class="btn ${plan ? '' : 'primary'} block" style="margin-top:14px" data-act="wpCreate">${plan ? 'Neu würfeln mit diesen Einstellungen' : 'Wochenplan erstellen'}</button>`;
+  if (!plan) return ctrl + '<div class="small muted" style="margin-top:10px">7 abwechslungsreiche Tage aus den Rezeptideen – Meal-Prep-Gerichte laufen bewusst zwei Tage am Stück, damit du einmal kochst und zweimal isst.</div>';
+  const todayIdx = (new Date().getDay() + 6) % 7, prep = wpPrep(plan);
+  return ctrl + `
+    <div class="small muted" style="margin:14px 0 4px">Aktueller Plan: ${IDEA_GOALS[plan.goal]} · ${fmt(plan.kcal)} kcal/Tag</div>
+    ${prep.length ? `<div class="card" style="margin-top:8px"><span class="label">Meal-Prep</span>${prep.map(x => `<div class="small" style="margin-top:8px"><b>${esc(x.r.name)}</b> – ${fmt(x.portions, 2)} Portionen für ${x.days.map(d => WD[d]).join(' & ')} (Rezept ergibt ${x.r.portions})</div>`).join('')}
+      <button class="btn sm" style="margin-top:12px" data-act="wpPrep">In Meal-Prep übernehmen</button></div>` : ''}
+    ${plan.days.map((_, i) => { const d = wpDay(plan, i), date = addDays(plan.start, i), logged = plan.logged?.[date]; return `<div class="card wp-day ${i === todayIdx ? 'today' : ''}">
+      <div class="card-head" style="margin-bottom:8px"><b>${WD[i]} · ${fmtDate(date)}${i === todayIdx ? ' · Heute' : ''}</b><span class="small muted">${fmt(d.tot.kcal)} kcal · ${fmt(d.tot.p)} g P</span></div>
+      ${d.meals.map((m, j) => `<div class="wp-meal"><span class="muted">${MEALS[m.meal]}</span><button class="link" data-act="ideaOpen" data-id="${m.r.id}">${esc(m.r.name)}${m.portions !== 1 ? ` · ${fmt(m.portions, 2)}×` : ''}</button><button class="x" data-act="wpSwap" data-d="${i}" data-m="${j}" aria-label="Tauschen">⇆</button></div>`).join('')}
+      ${date === today() ? `<button class="btn sm ${logged ? '' : 'primary'}" style="margin-top:10px" data-act="wpLog" data-d="${i}">${logged ? '✓ Eingetragen – nochmal eintragen' : 'Heute eintragen'}</button>` : ''}
+    </div>`; }).join('')}
+    <button class="btn block" data-act="wpShop">Einkaufsliste für die ganze Woche</button>`;
+}
+function wpLogDay(i) {
+  const plan = wpCurrent(); if (!plan) return;
+  const d = wpDay(plan, i), date = addDays(plan.start, i);
+  d.meals.forEach((m, j) => { const sp = ideaPer(m.r); S.foods.push({ id: uid(), date, meal: m.meal, name: m.r.name + (m.portions !== 1 ? ` (${fmt(m.portions, 2)} Port.)` : ''), kcal: m.kcal, p: m.p, c: m.c, f: m.f, g: Math.round(sp.g * m.portions) || null, ts: Date.now() + j }); });
+  plan.logged = { ...(plan.logged || {}), [date]: true };
+  save(); toast(`✓ ${WD[i]} eingetragen · ${fmt(d.tot.kcal)} kcal`);
+}
+function wpTodayNotice() {
+  const plan = wpCurrent(); if (!plan || plan.logged?.[today()]) return '';
+  const i = (new Date().getDay() + 6) % 7, d = wpDay(plan, i);
+  return `<div class="notice" data-act="wpLogToday">${ic('calendar')}<div class="t">Heute laut Wochenplan<span>${d.meals.map(m => m.r.name).slice(0, 3).join(' · ')} … · ${fmt(d.tot.kcal)} kcal</span></div><span class="btn sm primary">Eintragen</span></div>`;
 }
 
 /* ---------- Akzentfarbe ---------- */
@@ -2618,6 +2802,8 @@ VIEWS.today = () => {
 
   ${!S.meta.onboarded ? `<div class="notice" data-act="tab" data-tab="more">${ic('sparkle')}<div class="t">Profil einrichten<span>Ziele für Kalorien & Makros automatisch berechnen</span></div>${ic('chev', 'chev')}</div>` : ''}
   ${S.active ? `<div class="notice" data-act="tab" data-tab="train">${ic('activity')}<div class="t">${esc(S.active.name)}<span>Training läuft · <span data-elapsed style="display:inline">${mmss((Date.now() - S.active.start) / 1000)}</span></span></div>${ic('chev', 'chev')}</div>` : ''}
+  ${wpTodayNotice()}
+  ${(() => { const R = remainingFor(today()); return new Date().getHours() >= 12 && R.kcal > 200 && S.foods.some(f => f.date === today()) ? `<div class="notice" data-act="fitSheet">${ic('sparkle')}<div class="t">Noch ${fmt(R.kcal)} kcal${R.p > 10 ? ` & ${fmt(R.p)} g Protein` : ''} offen<span>Vorschläge, was jetzt passt</span></div>${ic('chev', 'chev')}</div>` : ''; })()}
   ${ciDue ? `<div class="notice" data-act="checkin">${ic('check')}<div class="t">Wöchentlicher Check-in<span>Gewicht, Energie, Schlaf & Co. · 1 Minute</span></div>${ic('chev', 'chev')}</div>` : ''}
   ${due && !ciDue ? `<div class="notice warn" data-act="addWeight">${ic('scale')}<div class="t">Zeit zum Wiegen<span>${S.weights.length ? `Wöchentlicher Check-in · ${DAYS[st.weighDay]}` : 'Startgewicht eintragen'}</span></div>${ic('chev', 'chev')}</div>` : ''}
 
@@ -2756,6 +2942,7 @@ VIEWS.food = () => {
       ${bar('Fett', t.f, st.fat, 'var(--orange)')}
     </div>
   </div>
+  ${fitCard(d)}
   ${energyCard()}
   ${ideasCard()}
   ${prepCard()}
@@ -2817,8 +3004,8 @@ function trainOverview() {
 
   <h3>Verlauf</h3>
   ${hist.length ? `<div class="list">${hist.slice(0, 30).map(w => {
-    const vol = w.entries.reduce((a, e) => a + e.sets.reduce((b, s) => b + (s.w || 0) * s.r, 0), 0);
-    const nSets = w.entries.reduce((a, e) => a + e.sets.length, 0);
+    const vol = w.entries.reduce((a, e) => a + WK(e.sets).reduce((b, s) => b + (s.w || 0) * s.r, 0), 0);
+    const nSets = w.entries.reduce((a, e) => a + WK(e.sets).length, 0);
     return `<div class="item tap" data-act="openWorkout" data-id="${w.id}"><div class="t"><b>${esc(w.name)}</b>
       <span>${fmtDate(w.date, { weekday: 'short', day: '2-digit', month: '2-digit' })} · ${mmss((w.end - w.start) / 1000)} · ${nSets} Sätze · ${fmt(vol)} kg Volumen</span></div><span class="muted">›</span></div>`;
   }).join('')}</div>` : '<div class="empty">Noch keine Trainings. Starte deinen ersten Plan!</div>'}`;
@@ -2854,16 +3041,18 @@ function workoutLogger() {
       <div class="sugg ${s.status}">${s.text}</div>
       ${pl ? `<div class="plates">${pl}</div>` : ''}
       <table class="sets"><tr><th>Satz</th><th>Vorher</th><th>kg</th><th>Wdh</th><th>✓</th></tr>
-      ${e.sets.map((x, si) => `<tr class="${x.done ? 'done' : ''}"><td>${si + 1}</td>
-        <td class="prev">${prev?.sets[si] ? `${fmt(prev.sets[si].w, 2)}×${prev.sets[si].r}` : '–'}<div id="lv_${ei}_${si}">${liveDelta(x, prev?.sets[si])}</div></td>
+      ${e.sets.map((x, si) => { const wi = workIdx(e, si), pp = x.type === 'warm' ? null : prev?.sets[wi]; return `<tr class="${x.done ? 'done' : ''} ${x.type === 'warm' ? 'warm' : ''}">
+        <td><button class="stype ${x.type || ''}" data-act="setType" data-e="${ei}" data-s="${si}" aria-label="${SET_TYPE_NAME[x.type || '']}">${setLabel(x, wi)}</button></td>
+        <td class="prev">${pp ? `${fmt(pp.w, 2)}×${pp.r}` : x.type === 'warm' ? 'Aufw.' : '–'}<div id="lv_${ei}_${si}">${liveDelta(x, pp)}</div></td>
         <td><input inputmode="decimal" data-bind="w" data-e="${ei}" data-s="${si}" value="${x.w ?? ''}"></td>
         <td><input inputmode="numeric" data-bind="r" data-e="${ei}" data-s="${si}" value="${x.r ?? ''}" placeholder="${x.t ?? ''}"></td>
-        <td><button class="chk" data-act="toggleSet" data-e="${ei}" data-s="${si}">✓</button></td></tr>`).join('')}
+        <td><button class="chk" data-act="toggleSet" data-e="${ei}" data-s="${si}">✓</button></td></tr>`; }).join('')}
       </table>
       <div class="lv-sum" id="lvs_${ei}">${liveSummary(e, prev)}</div>
       <div class="row" style="margin-top:8px">
         <button class="btn sm" data-act="addSet" data-e="${ei}">+ Satz</button>
         <button class="btn sm" data-act="removeSet" data-e="${ei}">− Satz</button>
+        ${(e.sets.find(x => x.type !== 'warm')?.w || 0) > 0 ? `<button class="btn sm ${e.sets.some(x => x.type === 'warm') ? 'ghost' : ''}" data-act="addWarmup" data-e="${ei}">${e.sets.some(x => x.type === 'warm') ? '− Aufwärmen' : '+ Aufwärmen'}</button>` : ''}
         <span class="grow"></span>
         ${ei > 0 ? `<button class="btn sm ghost" data-act="moveEntry" data-e="${ei}">↑</button>` : ''}
         <button class="btn sm ghost danger" data-act="removeEntry" data-e="${ei}">Entfernen</button>
@@ -3352,7 +3541,7 @@ function exerciseEditSheet(id, fromPicker) {
 let RC = null;
 function routineSheet(id, back) {
   const r = S.routines.find(x => x.id === id);
-  RC = { id: r?.id || null, name: r?.name || '', exIds: r ? [...r.exIds] : [], sets: { ...(r?.sets || {}) }, back: back || null };
+  RC = { id: r?.id || null, name: r?.name || '', exIds: r ? [...r.exIds] : [], sets: { ...(r?.sets || {}) }, warm: { ...(r?.warm || {}) }, back: back || null };
   renderRoutineSheet();
 }
 function renderRoutineSheet(keep) {
@@ -3366,8 +3555,10 @@ function renderRoutineSheet(keep) {
     <h3>Übungen & Sätze</h3>
     ${RC.exIds.length ? `<div class="list">${RC.exIds.map((id, i) => { const ex = exById(id), n = RC.sets[id] ?? ex?.sets ?? 3; return `<div class="item">
       <div class="t"><b>${i + 1}. ${esc(ex?.name || '?')}</b><span>${(ex?.pm || []).map(mName).join(', ')}</span></div>
+      <button class="wbtn ${RC.warm?.[id] ? 'on' : ''}" data-act="rWarm" data-i="${i}" aria-label="Aufwärmsätze">W</button>
       <div class="stepper"><button data-act="rSets" data-i="${i}" data-d="-1">−</button><b>${n}</b><button data-act="rSets" data-i="${i}" data-d="1">+</button></div>
       ${i ? `<button class="x" data-act="rMove" data-i="${i}">↑</button>` : ''}<button class="x" data-act="rDel" data-i="${i}">×</button></div>`; }).join('')}</div>` : '<div class="empty small">Noch keine Übungen.</div>'}
+    ${RC.exIds.length ? '<div class="small muted" style="margin-top:8px"><b style="color:var(--accent)">W</b> = startet automatisch mit Aufwärmsätzen (Rampe zum Arbeitsgewicht).</div>' : ''}
     <button class="btn block" style="margin-top:12px" data-act="rAddLib">+ Übung aus der Bibliothek</button>
     ${top.length ? `<h3>Volumen dieses Tages (Sätze)</h3><div class="chips">${top.map(([m, v]) => `<span class="chip">${mName(m)} ${fmt(v, 1)}</span>`).join('')}</div>` : ''}
     <div class="sheet-actions">${RC.id ? '<button class="btn danger" data-act="delRoutine">Löschen</button>' : ''}<button class="btn" data-act="${RC.back ? 'rBack' : 'closeSheet'}">${RC.back ? '‹ Zurück' : 'Abbrechen'}</button><button class="btn primary" data-act="saveRoutine">Speichern</button></div>`);
@@ -3376,16 +3567,16 @@ function renderRoutineSheet(keep) {
 
 function workoutSheet(id) {
   const w = S.workouts.find(x => x.id === id); if (!w) return;
-  const vol = w.entries.reduce((a, e) => a + e.sets.reduce((b, s) => b + (s.w || 0) * s.r, 0), 0);
+  const vol = w.entries.reduce((a, e) => a + WK(e.sets).reduce((b, s) => b + (s.w || 0) * s.r, 0), 0);
   openSheet(`<h2>${esc(w.name)}</h2>
     <div class="small muted">${fmtDate(w.date, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })} · ${mmss((w.end - w.start) / 1000)} · ${fmt(vol)} kg Volumen</div>
-    ${w.entries.map(e => `<h3>${esc(exById(e.exId)?.name || 'Gelöschte Übung')}</h3><div class="small">${e.sets.map((s, i) => `${i + 1}. ${fmt(s.w, 2)} kg × ${s.r}`).join('<br>')}</div>`).join('')}
+    ${w.entries.map(e => `<h3>${esc(exById(e.exId)?.name || 'Gelöschte Übung')}</h3><div class="small">${e.sets.map((s, i) => `${s.type ? setLabel(s, 0) : workIdx(e, i) + 1}. ${fmt(s.w, 2)} kg × ${s.r}${s.type === 'warm' ? ' <span class="muted">· Aufwärmen</span>' : s.type ? ` <span class="muted">· ${SET_TYPE_NAME[s.type]}</span>` : ''}`).join('<br>')}</div>`).join('')}
     <div class="sheet-actions"><button class="btn danger" data-act="delWorkout" data-id="${w.id}">Löschen</button><button class="btn" data-act="shareWorkout" data-id="${w.id}">Teilen</button><button class="btn" data-act="closeSheet">Schließen</button></div>`);
 }
 
 function finishWorkout() {
   const a = S.active;
-  const entries = a.entries.map(e => ({ exId: e.exId, target: e.sets.length, sets: e.sets.filter(s => s.done && s.r > 0).map(s => ({ w: s.w || 0, r: s.r })) })).filter(e => e.sets.length);
+  const entries = a.entries.map(e => ({ exId: e.exId, target: WK(e.sets).length, sets: e.sets.filter(s => s.done && s.r > 0).map(s => ({ w: s.w || 0, r: s.r, ...(s.type ? { type: s.type } : {}) })) })).filter(e => e.sets.length);
   if (!entries.length) {
     if (confirm('Du hast noch keinen Satz abgehakt. Training verwerfen?')) { S.active = null; UI.rest = null; save(); render(); }
     return;
@@ -3395,17 +3586,18 @@ function finishWorkout() {
   // PRs prüfen (vor dem Speichern)
   const prs = [];
   for (const e of entries) {
-    const prev = bestSet(exHistory(e.exId).flatMap(x => x.sets)), now = bestSet(e.sets);
+    if (!WK(e.sets).length) continue;
+    const prev = bestSet(exHistory(e.exId).flatMap(x => x.sets)), now = bestSet(WK(e.sets));
     if (!prev || setScore(now) > setScore(prev) + 1e-6) prs.push({ ex: exById(e.exId), now, first: !prev });
   }
   const w = { id: a.id, name: a.name, routineId: a.routineId, date: a.date, start: a.start, end: Date.now(), entries };
   S.workouts.push(w); S.active = null; UI.rest = null; save();
-  const vol = entries.reduce((s, e) => s + e.sets.reduce((b, x) => b + x.w * x.r, 0), 0);
+  const vol = entries.reduce((s, e) => s + WK(e.sets).reduce((b, x) => b + x.w * x.r, 0), 0);
   const ups = entries.map(e => ({ ex: exById(e.exId), s: suggest(exById(e.exId)) })).filter(x => x.ex && x.s.status !== 'hold');
   render();
   openSheet(`<div style="text-align:center"><div style="color:var(--accent);margin:6px 0 10px">${ic('trophy').replace('class="ic ', 'style="width:44px;height:44px" class="ic ')}</div><h2>Starkes Training</h2>
     <div class="grid3" style="margin:12px 0"><div class="stat"><b>${mmss((w.end - w.start) / 1000)}</b><span>Dauer</span></div>
-    <div class="stat"><b>${entries.reduce((n, e) => n + e.sets.length, 0)}</b><span>Sätze</span></div><div class="stat"><b>${fmt(vol)}</b><span>kg Volumen</span></div></div></div>
+    <div class="stat"><b>${entries.reduce((n, e) => n + WK(e.sets).length, 0)}</b><span>Sätze</span></div><div class="stat"><b>${fmt(vol)}</b><span>kg Volumen</span></div></div></div>
     ${prs.filter(p => !p.first).length ? `<h3>Neue Bestleistungen</h3><ul class="prlist">${prs.filter(p => !p.first).map(p => `<li><b>${esc(p.ex?.name)}</b>: ${fmt(p.now.w, 2)} kg × ${p.now.r}${p.now.w ? ` (e1RM ${fmt(e1rm(p.now.w, p.now.r), 1)} kg)` : ''}</li>`).join('')}</ul>` : ''}
     ${ups.length ? `<h3>Nächstes Mal</h3>${ups.map(x => `<div class="sugg ${x.s.status}"><b>${esc(x.ex.name)}:</b> ${x.s.status === 'up' ? `⬆ Hochgestuft auf ${fmt(x.s.w, 2)} kg!` : `↘ Deload auf ${fmt(x.s.w, 2)} kg`}</div>`).join('')}` : ''}
     <div class="sheet-actions"><button class="btn" data-act="shareWorkout" data-id="${w.id}">Teilen</button><button class="btn primary" data-act="closeSheet">Stark</button></div>`);
@@ -3484,6 +3676,65 @@ function download(blob, name) {
 /* ---------- Actions ---------- */
 const A = {
   applyUpdate,
+  // Satz-Typen & Aufwärmen
+  setType: el => {
+    const e = S.active.entries[+el.dataset.e], x = e.sets[+el.dataset.s];
+    const nt = SET_TYPES[(SET_TYPES.indexOf(x.type || '') + 1) % SET_TYPES.length];
+    if (nt) x.type = nt; else delete x.type;
+    save(); render(); toast(SET_TYPE_NAME[nt]);
+  },
+  addWarmup: el => {
+    const e = S.active.entries[+el.dataset.e], ex = exById(e.exId);
+    if (e.sets.some(x => x.type === 'warm')) { e.sets = e.sets.filter(x => x.type !== 'warm' || x.done); save(); render(); return; }
+    const ws = warmupSets(ex, e.sets.find(x => x.type !== 'warm')?.w);
+    if (!ws.length) return toast('Kein Arbeitsgewicht – erst Gewicht eintragen');
+    e.sets.unshift(...ws); save(); render(); toast(`${ws.length} Aufwärmsätze eingeplant`);
+  },
+  rWarm: el => { const id = RC.exIds[+el.dataset.i]; RC.warm ||= {}; RC.warm[id] = !RC.warm[id]; renderRoutineSheet(true); },
+  // Was passt noch?
+  fitSheet: () => fitSheet(),
+  fitAdd: el => {
+    const c = FIT[+el.dataset.i]; if (!c) return;
+    const date = UI.tab === 'food' ? UI.foodDate : today(), h = new Date().getHours();
+    const meal = c.kind !== 'food' && c.r.meal === 'breakfast' ? 'breakfast' : c.kind !== 'food' && c.r.meal === 'snack' ? 'snack' : date !== today() ? 'dinner' : autoMeal();
+    const name = c.kind === 'food' ? c.name : c.name + (c.q !== 1 ? ` (${fmt(c.q, 2)} Port.)` : '');
+    const g = c.kind === 'food' ? c.g * c.q : Math.round((c.kind === 'idea' ? ideaPer(c.r).g : perPortion(c.r).g) * c.q) || null;
+    S.foods.push({ id: uid(), date, meal, name, kcal: c.kcal, p: c.p, c: c.c, f: c.f, g, ts: Date.now() });
+    save(); render(); if (sheetOpen() && $('#sheet h2')?.textContent === 'Was passt noch?') fitSheet();
+    toast(`✓ ${name} · ${fmt(c.kcal)} kcal`);
+  },
+  // Wochenplan
+  wpCreate: () => {
+    S.weekPlan = genWeekPlan(ID.pgoal, ID.kcal, (S.weekPlan?.seed || Date.now() % 100000) + 7);
+    save(); renderIdeas(true); toast('✓ Wochenplan erstellt');
+  },
+  wpSwap: el => {
+    const plan = wpCurrent(); if (!plan) return;
+    const d = +el.dataset.d, j = +el.dataset.m, [meal, cur] = plan.days[d].meals[j];
+    const type = meal === 'lunch' || meal === 'dinner' ? 'main' : meal;
+    const pool = wpPool(plan.goal, type), used = plan.days[d].meals.map(m => m[1]);
+    const idx = pool.findIndex(r => r.id === cur);
+    for (let t = 1; t <= pool.length; t++) { const r = pool[(idx + t) % pool.length]; if (!used.includes(r.id)) { plan.days[d].meals[j] = [meal, r.id]; break; } }
+    save(); renderIdeas(true);
+  },
+  wpLog: el => { wpLogDay(+el.dataset.d); render(); renderIdeas(true); },
+  wpLogToday: () => { wpLogDay((new Date().getDay() + 6) % 7); UI.tab = 'food'; UI.foodDate = today(); render(); window.scrollTo(0, 0); },
+  wpShop: () => {
+    const plan = wpCurrent(); if (!plan) return;
+    plan.days.forEach((_, i) => wpDay(plan, i).meals.forEach(m => addToShopping(ingredientsOf({ portions: m.r.portions, items: ideaItems(m.r) }, m.portions))));
+    save(); toast('✓ Zutaten für die ganze Woche auf der Einkaufsliste');
+  },
+  wpPrep: () => {
+    const plan = wpCurrent(); if (!plan) return;
+    let n = 0;
+    for (const x of wpPrep(plan)) {
+      let rec = S.recipes.find(r => r.src === x.r.id);
+      if (!rec) { rec = { id: uid(), src: x.r.id, name: x.r.name, portions: x.r.portions, items: ideaItems(x.r) }; S.recipes.push(rec); }
+      const portions = Math.max(1, Math.ceil(x.portions));
+      S.prep.push({ id: uid(), rid: rec.id, portions, left: portions, status: 'planned', date: today() }); n++;
+    }
+    save(); render(); toast(`✓ ${n} Gericht${n === 1 ? '' : 'e'} im Meal-Prep eingeplant`);
+  },
   // Eigene Lebensmittel
   newCustomFood: () => customFoodSheet(null, null, $('#foodBody') ? 'food' : null),
   editCustomFood: el => customFoodSheet(el.dataset.id),
@@ -3576,12 +3827,13 @@ const A = {
     const e = S.active.entries[GM.ei], ex = exById(e.exId), si = e.sets.findIndex(s => !s.done); if (si < 0) return;
     const x = e.sets[si];
     x.r = x.r ?? x.t ?? ex.repMin; x.w = x.w ?? 0; x.done = true;
-    e.sets.slice(si + 1).forEach(n => { if (!n.done) n.w = x.w; });
+    if (x.type !== 'warm') e.sets.slice(si + 1).forEach(n => { if (!n.done && n.type !== 'warm') n.w = x.w; });
     navigator.vibrate?.(30); save();
     if (!e.sets.some(s => !s.done)) { const nx = gymFirstOpen(GM.ei); if (nx != null) GM.ei = nx; }
     if (gymFirstOpen() == null) { UI.rest = null; tickRest(); renderGym(); speak('Stark! Alle Sätze erledigt.'); return; }
-    startRest(ex.rest || 90); GM.warned = false; renderGym();
-    speak(`Satz geschafft. ${Math.round((ex.rest || 90) / 60 * 2) / 2 >= 1 ? `${fmt(Math.round((ex.rest || 90) / 30) / 2, 1).replace(',', ' Komma ')} Minuten` : `${ex.rest} Sekunden`} Pause.`);
+    const restS = x.type === 'warm' ? 45 : ex.rest || 90;
+    startRest(restS); GM.warned = false; renderGym();
+    speak(`Satz geschafft. ${restS >= 60 ? `${fmt(Math.round(restS / 30) / 2, 1).replace(',', ' Komma ')} Minuten` : `${restS} Sekunden`} Pause.`);
   },
   gymFinish: () => { gymClose(); finishWorkout(); },
   // Kalorienbedarf
@@ -3858,8 +4110,8 @@ const A = {
       if (s.r == null) { s.done = false; return toast('Wiederholungen eintragen'); }
       if (s.w == null) s.w = 0;
       // Gewicht in folgende, noch offene Sätze übernehmen
-      e.sets.slice(+el.dataset.s + 1).forEach(n => { if (!n.done) n.w = s.w; });
-      startRest(exById(e.exId)?.rest || 90);
+      if (s.type !== 'warm') e.sets.slice(+el.dataset.s + 1).forEach(n => { if (!n.done && n.type !== 'warm') n.w = s.w; });
+      startRest(s.type === 'warm' ? 45 : exById(e.exId)?.rest || 90);
       navigator.vibrate?.(30);
     }
     save(); render();
@@ -3898,9 +4150,10 @@ const A = {
     const name = $('#r_name').value.trim(); if (!name) return toast('Name eingeben');
     if (!RC.exIds.length) return toast('Mindestens eine Übung hinzufügen');
     const sets = Object.fromEntries(RC.exIds.filter(id => RC.sets[id] != null && RC.sets[id] !== exById(id)?.sets).map(id => [id, RC.sets[id]]));
+    const warm = Object.fromEntries(RC.exIds.filter(id => RC.warm?.[id]).map(id => [id, true]));
     let id = RC.id;
-    if (id) Object.assign(S.routines.find(r => r.id === id), { name, exIds: RC.exIds, sets });
-    else { id = uid(); S.routines.push({ id, name, exIds: RC.exIds, sets }); }
+    if (id) Object.assign(S.routines.find(r => r.id === id), { name, exIds: RC.exIds, sets, warm });
+    else { id = uid(); S.routines.push({ id, name, exIds: RC.exIds, sets, warm }); }
     save(); render();
     if (RC.back) { if (!PB.days.some(d => d.rid === id)) PB.days.push({ rid: id, wd: null }); renderProgramSheet(); }
     else { closeSheet(); toast('✓ Trainingstag gespeichert'); }

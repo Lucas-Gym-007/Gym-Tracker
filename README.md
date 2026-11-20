@@ -65,6 +65,10 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - **Rezeptideen:** 24 eiweißreiche Rezepte für Cut, Maintain und Bulk (Frühstück, Hauptgerichte, Snacks), mit Zutaten, Zubereitung und Nährwerten pro Portion, die aus der Datenbank berechnet werden. Eintragen, in „Meine Rezepte“ übernehmen oder auf die Einkaufsliste setzen.
 - **Fertige Tagespläne:** je zwei Varianten pro Ziel. Sie werden automatisch auf 1.600–3.500 kcal oder dein eigenes Ziel skaliert (ca. ±50 kcal). Mit einem Tipp heute eintragen oder die Zutaten für 1–7 Tage auf die Einkaufsliste setzen.
 
+- **„Was passt noch?“:** zeigt, was heute an Kalorien und Makros offen ist, und schlägt passende Rezeptideen (in der richtigen Portionsgröße) und eiweißreiche Lebensmittel vor, abhängig von der Tageszeit. Ein Tipp trägt den Vorschlag ein.
+- **Wochen-Mealplan:** 7 abwechslungsreiche Tage aus den Rezeptideen, passend zu Ziel und Kalorien. Meal-Prep-Gerichte laufen zwei Tage am Stück. Mahlzeiten lassen sich tauschen, dazu gibt es eine Wocheneinkaufsliste, „In Meal-Prep übernehmen“ und „Heute laut Plan“ auf Home.
+- **Satz-Typen:** Arbeitssatz, **W** Aufwärmen, **D** Drop-Satz, **F** bis Versagen. Aufwärmsätze zählen nicht für Volumen, Rekorde und Progression. Die Aufwärm-Rampe wird automatisch berechnet und kann pro Übung im Trainingstag fest eingeplant werden.
+
 **💪 Training**
 - **Plan-Baukasten**: Trainingsplan aus Trainingstagen zusammenstellen, Sätze pro Übung festlegen, als Rotation (x× pro Woche) oder mit festen Wochentagen. Das geplante Volumen pro Muskel siehst du live beim Bauen.
 - Vorlagen: Push/Pull/Beine, Oberkörper/Unterkörper, Ganzkörper A/B, Zuhause mit Kurzhanteln
