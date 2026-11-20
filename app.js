@@ -407,7 +407,7 @@ const DEFAULTS = () => ({
   },
   foods: [], favFoods: [], water: {}, weights: [], measures: [], prs: [],
   cardio: [], mealTemplates: [], recipes: [], goals: [],
-  habits: [], habitLog: {}, shopping: [], prep: [], checkins: [], tdeeHist: [],
+  habits: [], habitLog: {}, shopping: [], prep: [], checkins: [], tdeeHist: [], customFoods: [],
   exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
   routines: DEFAULT_ROUTINES.map(r => ({ ...r, exIds: [...r.exIds] })),
   programs: mkPrograms(), activeProgram: 'ppl',
@@ -1325,7 +1325,8 @@ function renderSaved(b) {
     ${S.recipes.length ? `<h3>Rezepte</h3><div class="list">${S.recipes.map(r => { const s = perPortion(r); return `<div class="item tap" data-act="pickRecipe" data-id="${r.id}">
       <div class="t"><b>${esc(r.name)}</b><span>pro Portion · ${fmt(s.kcal)} kcal · P ${fmt(s.p)}</span></div><span class="muted">›</span></div>`; }).join('')}</div>` : ''}
     ${!S.mealTemplates.length && !S.recipes.length ? '<div class="empty small">Noch nichts gespeichert. Speichere eine Mahlzeit über „Als Vorlage“ im Essen-Tab oder leg ein Rezept an.</div>' : ''}
-    <button class="btn block ghost" style="margin-top:12px" data-act="newRecipe">+ Neues Rezept</button>`;
+    <button class="btn block" style="margin-top:12px" data-act="ideas">Rezeptideen & Tagespläne</button>
+    <button class="btn block ghost" style="margin-top:8px" data-act="newRecipe">+ Neues Rezept</button>`;
 }
 function renderRecipeAmount() {
   const r = S.recipes.find(x => x.id === FC.picked.recipe); if (!r) { FC.picked = null; return renderFoodBody(); }
@@ -1357,6 +1358,10 @@ function librarySheet() {
     ${S.recipes.length ? `<div class="list">${S.recipes.map(r => { const s = perPortion(r); return `<div class="item tap" data-act="editRecipe" data-id="${r.id}">
       <div class="t"><b>${esc(r.name)}</b><span>${r.items.length} Zutaten · ${fmt(r.portions, 1)} Portionen · ${fmt(s.kcal)} kcal/Portion</span></div><span class="muted">›</span></div>`; }).join('')}</div>` : '<div class="empty small">Noch keine Rezepte.</div>'}
     <button class="btn block" style="margin-top:10px" data-act="newRecipe">+ Neues Rezept</button>
+    <h3>Eigene Lebensmittel</h3>
+    ${(S.customFoods || []).length ? `<div class="list">${S.customFoods.map(x => `<div class="item tap" data-act="editCustomFood" data-id="${x.id}">
+      <div class="t"><b>${esc(x.name)}</b><span>${esc(x.cat || 'Eigene')} · pro 100 g ${fmt(x.kcal)} kcal · P ${fmt(x.p, 1)} g</span></div><span class="muted">›</span></div>`).join('')}</div>` : '<div class="empty small">Noch keine eigenen Lebensmittel.</div>'}
+    <button class="btn block" style="margin-top:10px" data-act="newCustomFood">+ Eigenes Lebensmittel</button>
     <h3>Mahlzeit-Vorlagen</h3>
     ${S.mealTemplates.length ? `<div class="list">${S.mealTemplates.map(t => `<div class="item"><div class="t"><b>${esc(t.name)}</b><span>${t.items.map(i => esc(i.name)).join(', ')} · ${fmt(tplTotals(t).kcal)} kcal</span></div>
       <button class="x" data-act="delTemplate" data-id="${t.id}">×</button></div>`).join('')}</div>` : '<div class="empty small">Speichere eine Mahlzeit im Essen-Tab über „Als Vorlage“.</div>'}
@@ -1393,7 +1398,7 @@ function reTotals() {
 function renderRecipeSearch() {
   const box = $('#rres'); if (!box) return;
   const q = ($('#rq')?.value || '').trim().toLowerCase();
-  const list = q ? [...foodSearch(q), ...RE_EXTRA] : [];
+  const list = q ? [...foodSearch(q, foodAll()), ...RE_EXTRA] : [];
   RE.list = list;
   box.innerHTML = q ? `${list.length ? `<div class="list">${list.slice(0, 15).map((x, i) => `<div class="item tap" data-act="reAdd" data-i="${i}">
       <div class="t"><b>${esc(x.name)}</b><span>pro 100 g · ${fmt(x.kcal)} kcal · P ${fmt(x.p)}</span></div><span class="muted">+</span></div>`).join('')}</div>` : ''}
@@ -2319,6 +2324,214 @@ function autoKcalCheck() {
   else save();
 }
 
+/* =====================================================================
+   Eigene Lebensmittel · Rezeptideen · Tagespläne
+   ===================================================================== */
+
+/* ---------- Eigene Lebensmittel ---------- */
+const foodAll = () => [...(S.customFoods || []).map(x => ({ ...x, cat: x.cat || 'Eigene', own: true })), ...FOOD_DB];
+let CF = null;
+function customFoodSheet(id, pre, back) {
+  const x = (S.customFoods || []).find(f => f.id === id) || pre || {};
+  CF = { id: id || null, back: back || null };
+  openSheet(`<h2>${id ? 'Lebensmittel bearbeiten' : 'Eigenes Lebensmittel'}</h2>
+    <label class="f"><span>Name</span><input id="cf_name" value="${esc(x.name || '')}" placeholder="z.B. Mein Proteinbrot (Bäcker XY)"></label>
+    <label class="f"><span>Kategorie</span><select id="cf_cat">${['Eigene', ...Object.keys(FOOD_CATS)].map(c => `<option ${c === (x.cat && x.cat !== 'Online' ? x.cat : 'Eigene') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+    <div class="grid2">
+      <label class="f"><span>Portion (Bezeichnung)</span><input id="cf_pl" value="${esc(x.portion?.l || '1 Portion')}"></label>
+      <label class="f"><span>Portion (g / ml)</span><input id="cf_pg" inputmode="decimal" value="${x.portion?.g || 100}"></label>
+    </div>
+    <div class="seg" id="cf_basis"><button class="on" data-act="cfBasis" data-b="100">pro 100 g</button><button data-act="cfBasis" data-b="portion">pro Portion</button></div>
+    <div class="grid2">
+      <label class="f"><span>Kalorien (kcal)</span><input id="cf_kcal" inputmode="decimal" value="${x.kcal != null ? fmt(x.kcal, 1) : ''}"></label>
+      <label class="f"><span>Protein (g)</span><input id="cf_p" inputmode="decimal" value="${x.p != null ? fmt(x.p, 1) : ''}"></label>
+      <label class="f"><span>Kohlenhydrate (g)</span><input id="cf_c" inputmode="decimal" value="${x.c != null ? fmt(x.c, 1) : ''}"></label>
+      <label class="f"><span>Fett (g)</span><input id="cf_f" inputmode="decimal" value="${x.f != null ? fmt(x.f, 1) : ''}"></label>
+    </div>
+    <div class="small muted" id="cf_hint">Werte wie auf dem Etikett eintragen. Mit „pro Portion“ rechne ich automatisch auf 100 g um.</div>
+    <div class="sheet-actions">${id ? `<button class="btn danger" data-act="delCustomFood" data-id="${id}">Löschen</button>` : ''}<button class="btn" data-act="${back === 'food' ? 'cfBack' : 'closeSheet'}">${back === 'food' ? '‹ Zurück' : 'Abbrechen'}</button><button class="btn primary" data-act="saveCustomFood">Speichern</button></div>`);
+  CF.basis = '100';
+}
+
+/* ---------- Rezeptideen (Nährwerte werden aus der Lebensmittel-Datenbank berechnet) ---------- */
+const IDEA_GOALS = { cut: 'Cut', maintain: 'Maintain', bulk: 'Bulk' };
+const IDEA_MEALS = { breakfast: 'Frühstück', main: 'Hauptgericht', snack: 'Snack' };
+const RECIPE_IDEAS = [
+  // Frühstück
+  { id: 'i_oats', name: 'Protein Overnight Oats', meal: 'breakfast', goals: ['cut', 'maintain', 'bulk'], min: 5, portions: 1, tags: ['vegetarisch', 'Meal-Prep'],
+    items: [['Haferflocken', 50], ['Skyr', 150], ['Whey Protein', 15], ['Beeren (TK)', 100], ['Milch 1,5%', 100]],
+    steps: ['Haferflocken, Skyr, Whey und Milch in einem Glas glatt rühren.', 'Abgedeckt über Nacht in den Kühlschrank stellen.', 'Morgens mit den Beeren toppen.'] },
+  { id: 'i_pancakes', name: 'Protein-Pancakes mit Banane', meal: 'breakfast', goals: ['maintain', 'bulk'], min: 15, portions: 1, tags: ['vegetarisch'],
+    items: [['Haferflocken', 60], ['Eiklar', 150], ['Ei', 60], ['Whey Protein', 30], ['Banane', 120]],
+    steps: ['Haferflocken, Eiklar, Ei, Whey und die halbe Banane fein pürieren.', 'In einer beschichteten Pfanne kleine Pancakes bei mittlerer Hitze von beiden Seiten backen.', 'Mit der restlichen Banane in Scheiben servieren.'] },
+  { id: 'i_egg_bread', name: 'Rührei auf Vollkornbrot', meal: 'breakfast', goals: ['cut', 'maintain'], min: 10, portions: 1, tags: ['vegetarisch'],
+    items: [['Ei', 120], ['Eiklar', 99], ['Vollkornbrot', 50], ['Cherrytomaten', 100]],
+    steps: ['Eier und Eiklar verquirlen, salzen und pfeffern.', 'In einer beschichteten Pfanne bei niedriger Hitze cremig stocken lassen.', 'Auf dem Brot mit den halbierten Tomaten anrichten.'] },
+  { id: 'i_skyr_bowl', name: 'Skyr-Beeren-Bowl', meal: 'breakfast', goals: ['cut', 'maintain'], min: 3, portions: 1, tags: ['vegetarisch', 'schnell'],
+    items: [['Skyr', 250], ['Heidelbeeren', 125], ['Haferflocken', 20], ['Honig', 10]],
+    steps: ['Skyr in eine Schüssel geben.', 'Mit Heidelbeeren und Haferflocken toppen.', 'Mit Honig beträufeln.'] },
+  { id: 'i_quark_roll', name: 'Quark-Schinken-Brötchen', meal: 'breakfast', goals: ['cut', 'maintain'], min: 5, portions: 1, tags: ['schnell'],
+    items: [['Vollkornbrötchen', 120], ['Magerquark', 125], ['Kochschinken', 40], ['Gurke', 100]],
+    steps: ['Brötchen aufschneiden und mit Magerquark bestreichen (mit Salz, Pfeffer, Schnittlauch würzen).', 'Mit Kochschinken und Gurkenscheiben belegen.'] },
+  { id: 'i_bulk_shake', name: 'Bulk-Shake (1.000 kcal)', meal: 'snack', goals: ['bulk'], min: 3, portions: 1, tags: ['vegetarisch', 'schnell'],
+    items: [['Milch 3,5 %', 500], ['Haferflocken', 80], ['Whey Protein', 30], ['Banane', 120], ['Erdnussbutter', 30]],
+    steps: ['Alle Zutaten in den Mixer geben.', 'Etwa 30 Sekunden cremig mixen – fertig.'] },
+  // Hauptgerichte
+  { id: 'i_chicken_bowl', name: 'Hähnchen-Reis-Bowl', meal: 'main', goals: ['cut', 'maintain', 'bulk'], min: 25, portions: 1, tags: ['Meal-Prep'],
+    items: [['Hähnchenbrust (roh)', 200], ['Reis (roh)', 80], ['Brokkoli', 200], ['Sojasauce', 15], ['Rapsöl', 5]],
+    steps: ['Reis nach Packungsanweisung kochen, Brokkoli die letzten 5 Minuten mitdämpfen.', 'Hähnchen würfeln und im Öl rundum goldbraun braten.', 'Alles in einer Schüssel anrichten und mit Sojasauce abschmecken.'] },
+  { id: 'i_turkey_wrap', name: 'Puten-Wrap', meal: 'main', goals: ['cut', 'maintain'], min: 15, portions: 1, tags: ['schnell'],
+    items: [['Wrap (Weizen)', 60], ['Putenbrust (roh)', 150], ['Blattsalat', 50], ['Tomate', 100], ['Joghurt-Dressing', 30]],
+    steps: ['Putenbrust in Streifen schneiden, würzen und anbraten.', 'Wrap kurz in der Pfanne erwärmen.', 'Mit Salat, Tomate, Pute und Dressing füllen und einrollen.'] },
+  { id: 'i_bolo', name: 'Protein-Bolognese', meal: 'main', goals: ['maintain', 'bulk'], min: 25, portions: 1, tags: ['Meal-Prep'],
+    items: [['Vollkornnudeln (roh)', 100], ['Rinderhack mager 5% (roh)', 150], ['Tomatensauce (Passata)', 200], ['Zwiebel', 50], ['Parmesan', 10]],
+    steps: ['Nudeln nach Packungsanweisung kochen.', 'Zwiebel würfeln und mit dem Hack krümelig anbraten.', 'Passata dazugeben, würzen und 10 Minuten köcheln.', 'Mit den Nudeln und Parmesan servieren.'] },
+  { id: 'i_salmon', name: 'Lachs mit Kartoffeln & Spinat', meal: 'main', goals: ['maintain'], min: 25, portions: 1, tags: ['Omega-3'],
+    items: [['Lachs (roh)', 150], ['Kartoffeln (gekocht)', 250], ['Spinat', 150], ['Olivenöl', 5]],
+    steps: ['Kartoffeln kochen.', 'Lachs würzen und im Ofen bei 200 °C ca. 12 Minuten garen.', 'Spinat im Öl zusammenfallen lassen, mit Salz und Knoblauch abschmecken.'] },
+  { id: 'i_chili', name: 'Chili con Carne mit Reis', meal: 'main', goals: ['cut', 'maintain', 'bulk'], min: 40, portions: 4, tags: ['Meal-Prep'],
+    items: [['Rinderhack mager 5% (roh)', 500], ['Kidneybohnen (Dose)', 250], ['Mais (Dose)', 140], ['Tomatensauce (Passata)', 500], ['Zwiebel', 100], ['Paprika', 150], ['Reis (roh)', 300]],
+    steps: ['Zwiebel und Paprika würfeln, mit dem Hack anbraten.', 'Passata, Bohnen und Mais dazugeben, mit Chili, Kreuzkümmel und Salz würzen.', '20 Minuten köcheln lassen; Reis separat kochen.', 'In 4 Portionen aufteilen – hält 4 Tage im Kühlschrank.'] },
+  { id: 'i_curry', name: 'Hähnchen-Curry mit Basmati', meal: 'main', goals: ['maintain', 'bulk'], min: 35, portions: 4, tags: ['Meal-Prep'],
+    items: [['Hähnchenbrust (roh)', 600], ['Basmatireis (roh)', 320], ['Gemüsemix (TK)', 400], ['Naturjoghurt 3,5%', 300], ['Rapsöl', 20]],
+    steps: ['Reis kochen.', 'Hähnchen würfeln und im Öl anbraten, Gemüse dazugeben.', 'Mit Currypulver, Kurkuma und Salz würzen, Joghurt unterrühren (nicht mehr kochen).', 'In 4 Portionen aufteilen.'] },
+  { id: 'i_tuna_pasta', name: 'Thunfisch-Pasta mit Rucola', meal: 'main', goals: ['cut', 'maintain'], min: 15, portions: 1, tags: ['schnell'],
+    items: [['Vollkornnudeln (roh)', 80], ['Thunfisch (Dose, Wasser)', 150], ['Cherrytomaten', 150], ['Rucola', 30], ['Olivenöl', 5]],
+    steps: ['Nudeln kochen.', 'Tomaten halbieren und im Öl kurz anschwitzen, Thunfisch dazugeben.', 'Mit den Nudeln mischen und mit Rucola servieren.'] },
+  { id: 'i_quark_potato', name: 'Pellkartoffeln mit Kräuterquark', meal: 'main', goals: ['cut'], min: 25, portions: 1, tags: ['vegetarisch', 'günstig'],
+    items: [['Kartoffeln (gekocht)', 300], ['Magerquark', 250], ['Gurke', 100]],
+    steps: ['Kartoffeln mit Schale kochen.', 'Quark mit etwas Wasser, Salz, Pfeffer und Kräutern cremig rühren, Gurke würfeln und unterheben.', 'Zusammen servieren.'] },
+  { id: 'i_steak', name: 'Steak mit Süßkartoffel & Bohnen', meal: 'main', goals: ['maintain', 'bulk'], min: 30, portions: 1, tags: [],
+    items: [['Rumpsteak (roh)', 250], ['Süßkartoffel (gekocht)', 300], ['Grüne Bohnen', 200], ['Butter', 10]],
+    steps: ['Süßkartoffel in Spalten schneiden und bei 200 °C ca. 25 Minuten backen.', 'Bohnen blanchieren und in der Butter schwenken.', 'Steak scharf anbraten, 5 Minuten ruhen lassen und würzen.'] },
+  { id: 'i_tofu', name: 'Tofu-Gemüse-Pfanne', meal: 'main', goals: ['cut', 'maintain'], min: 20, portions: 1, tags: ['vegan'],
+    items: [['Räuchertofu', 200], ['Gemüsemix (TK)', 300], ['Reis (roh)', 50], ['Sojasauce', 15], ['Rapsöl', 10]],
+    steps: ['Reis kochen.', 'Tofu würfeln und im Öl knusprig braten.', 'Gemüse dazugeben, mit Sojasauce ablöschen und mit dem Reis servieren.'] },
+  { id: 'i_lentil_bolo', name: 'Linsen-Bolognese', meal: 'main', goals: ['maintain'], min: 25, portions: 1, tags: ['vegetarisch', 'günstig'],
+    items: [['Rote Linsen (roh)', 70], ['Vollkornnudeln (roh)', 80], ['Tomatensauce (Passata)', 200], ['Parmesan', 15]],
+    steps: ['Linsen mit der Passata und etwas Wasser ca. 12 Minuten köcheln, würzen.', 'Nudeln kochen.', 'Mit Parmesan servieren.'] },
+  { id: 'i_oven_chicken', name: 'Ofen-Hähnchen mit Gemüse', meal: 'main', goals: ['cut', 'maintain'], min: 35, portions: 1, tags: ['Meal-Prep'],
+    items: [['Hähnchenbrust (roh)', 200], ['Zucchini', 200], ['Paprika', 150], ['Kartoffeln (gekocht)', 200], ['Olivenöl', 10]],
+    steps: ['Gemüse und Kartoffeln in Stücke schneiden, mit Öl und Gewürzen mischen.', 'Mit dem gewürzten Hähnchen aufs Blech legen.', 'Bei 200 °C ca. 25 Minuten backen.'] },
+  { id: 'i_pollock', name: 'Seelachs mit Reis & Brokkoli', meal: 'main', goals: ['cut'], min: 20, portions: 1, tags: ['fettarm'],
+    items: [['Seelachs (roh)', 200], ['Reis (roh)', 60], ['Brokkoli', 200], ['Olivenöl', 5]],
+    steps: ['Reis kochen, Brokkoli dämpfen.', 'Seelachs würzen und im Öl von jeder Seite 3–4 Minuten braten.', 'Mit Zitrone servieren.'] },
+  { id: 'i_carbonara', name: 'Protein-Carbonara', meal: 'main', goals: ['bulk'], min: 20, portions: 1, tags: [],
+    items: [['Nudeln (roh)', 150], ['Bacon', 30], ['Ei', 120], ['Parmesan', 20], ['Kochschinken', 60]],
+    steps: ['Nudeln kochen.', 'Bacon und Schinken in Streifen knusprig braten.', 'Eier mit Parmesan verquirlen.', 'Pfanne vom Herd nehmen, Nudeln und Eimasse unterrühren, bis es cremig ist.'] },
+  // Snacks
+  { id: 'i_pudding', name: 'Proteinpudding mit Beeren', meal: 'snack', goals: ['cut', 'maintain'], min: 2, portions: 1, tags: ['schnell'],
+    items: [['Proteinpudding', 200], ['Beeren (TK)', 100]], steps: ['Beeren antauen lassen und über den Pudding geben.'] },
+  { id: 'i_cottage', name: 'Hüttenkäse-Reiswaffeln', meal: 'snack', goals: ['cut'], min: 3, portions: 1, tags: ['vegetarisch', 'schnell'],
+    items: [['Hüttenkäse', 200], ['Reiswaffeln', 24], ['Cherrytomaten', 100]], steps: ['Reiswaffeln mit Hüttenkäse bestreichen.', 'Mit Tomaten, Salz und Pfeffer toppen.'] },
+  { id: 'i_pb_toast', name: 'Erdnussbutter-Bananen-Toast + Milch', meal: 'snack', goals: ['bulk'], min: 5, portions: 1, tags: ['vegetarisch'],
+    items: [['Vollkorntoast', 50], ['Erdnussbutter', 30], ['Banane', 120], ['Milch 3,5 %', 300]], steps: ['Toast rösten, mit Erdnussbutter bestreichen und mit Bananenscheiben belegen.', 'Dazu ein großes Glas Milch.'] },
+  { id: 'i_skyr_nuts', name: 'Skyr mit Studentenfutter', meal: 'snack', goals: ['maintain', 'bulk'], min: 2, portions: 1, tags: ['vegetarisch', 'schnell'],
+    items: [['Skyr', 200], ['Studentenfutter', 30], ['Honig', 10]], steps: ['Skyr mit Studentenfutter und Honig toppen.'] },
+];
+const ideaById = id => RECIPE_IDEAS.find(r => r.id === id);
+const ideaItems = r => r.items.map(([n, g]) => { const f = FOOD_DB.find(x => x.name === n) || { kcal: 0, p: 0, c: 0, f: 0 }; return { name: n, kcal: f.kcal, p: f.p, c: f.c, f: f.f, g }; });
+const ideaPer = r => perPortion({ portions: r.portions, items: ideaItems(r) });
+
+/* ---------- Tagespläne (skalieren auf das gewünschte Kalorienziel) ---------- */
+const PLAN_TEMPLATES = {
+  cut: [{ name: 'Klassisch', meals: [['breakfast', 'i_oats'], ['lunch', 'i_oven_chicken'], ['snack', 'i_cottage'], ['dinner', 'i_pollock']] },
+    { name: 'Schnell & einfach', meals: [['breakfast', 'i_egg_bread'], ['lunch', 'i_tuna_pasta'], ['snack', 'i_pudding'], ['dinner', 'i_quark_potato']] }],
+  maintain: [{ name: 'Klassisch', meals: [['breakfast', 'i_quark_roll'], ['lunch', 'i_chicken_bowl'], ['snack', 'i_skyr_nuts'], ['dinner', 'i_salmon']] },
+    { name: 'Vegetarisch', meals: [['breakfast', 'i_skyr_bowl'], ['lunch', 'i_lentil_bolo'], ['snack', 'i_pudding'], ['dinner', 'i_tofu']] }],
+  bulk: [{ name: 'Klassisch', meals: [['breakfast', 'i_pancakes'], ['lunch', 'i_curry'], ['snack', 'i_bulk_shake'], ['dinner', 'i_steak']] },
+    { name: 'Pasta-Power', meals: [['breakfast', 'i_oats'], ['lunch', 'i_bolo'], ['snack', 'i_pb_toast'], ['dinner', 'i_carbonara']] }],
+};
+const PLAN_KCAL = [1600, 1800, 2000, 2200, 2500, 2800, 3000, 3500];
+function buildPlan(goal, tpl, target) {
+  const T = PLAN_TEMPLATES[goal][tpl] || PLAN_TEMPLATES[goal][0];
+  const per = T.meals.map(([, id]) => ideaPer(ideaById(id)));
+  const base = per.reduce((a, x) => a + x.kcal, 0), k = target / base;
+  // Startwert: gleichmäßig skaliert, dann Gericht für Gericht in Viertel-Portionen nachjustieren
+  const por = per.map(() => Math.min(3, Math.max(0.5, Math.round(k * 4) / 4)));
+  const total = () => por.reduce((a, q, i) => a + q * per[i].kcal, 0);
+  for (let it = 0; it < 40; it++) {
+    let best = null, err = Math.abs(total() - target);
+    por.forEach((q, i) => [0.25, -0.25].forEach(d => {
+      const nq = q + d; if (nq < 0.5 || nq > 3) return;
+      const e = Math.abs(total() + d * per[i].kcal - target);
+      // kleine Bevorzugung, Portionen nahe am Durchschnitt zu halten
+      const score = e + Math.abs(nq - k) * 15;
+      if (e < err - 1 && (!best || score < best.score)) best = { i, nq, score };
+    }));
+    if (!best) break;
+    por[best.i] = best.nq;
+  }
+  const meals = T.meals.map(([meal, id], i) => {
+    const r = ideaById(id), s = per[i], portions = por[i];
+    return { meal, r, portions, kcal: s.kcal * portions, p: s.p * portions, c: s.c * portions, f: s.f * portions };
+  });
+  const tot = meals.reduce((a, m) => ({ kcal: a.kcal + m.kcal, p: a.p + m.p, c: a.c + m.c, f: a.f + m.f }), { kcal: 0, p: 0, c: 0, f: 0 });
+  return { name: T.name, meals, tot };
+}
+
+/* ---------- Sheet: Rezeptideen & Tagespläne ---------- */
+let ID = null;
+function ideasSheet(tab) {
+  const st = S.settings;
+  ID = { tab: tab || ID?.tab || 'recipes', goal: ID?.goal || 'all', meal: ID?.meal || 'all', pgoal: ID?.pgoal || (IDEA_GOALS[st.goal] ? st.goal : 'maintain'),
+    kcal: ID?.kcal || Math.round((st.kcal || 2000) / 50) * 50, tpl: ID?.tpl || 0, days: ID?.days || 3 };
+  renderIdeas();
+}
+function renderIdeas(keep) {
+  const scroll = keep ? $('#sheet .sheet-panel').scrollTop : 0, st = S.settings;
+  let body;
+  if (ID.tab === 'recipes') {
+    const list = RECIPE_IDEAS.filter(r => (ID.goal === 'all' || r.goals.includes(ID.goal)) && (ID.meal === 'all' || r.meal === ID.meal));
+    body = `<div class="chips lb-chips">${[['all', 'Alle'], ...Object.entries(IDEA_GOALS)].map(([k, l]) => `<button class="chip ${ID.goal === k ? 'on' : ''}" data-act="idGoal" data-k="${k}">${l}</button>`).join('')}</div>
+      <div class="chips lb-chips sub">${[['all', 'Alle Mahlzeiten'], ...Object.entries(IDEA_MEALS)].map(([k, l]) => `<button class="chip ${ID.meal === k ? 'on2' : ''}" data-act="idMeal" data-k="${k}">${l}</button>`).join('')}</div>
+      <div class="list" style="margin-top:14px">${list.map(r => { const s = ideaPer(r); return `<div class="item tap" data-act="ideaOpen" data-id="${r.id}">
+        <div class="t"><b>${esc(r.name)}</b><span>${IDEA_MEALS[r.meal]} · ${r.min} Min · ${fmt(s.kcal)} kcal${r.portions > 1 ? ` pro Portion (${r.portions}×)` : ''} · ${r.goals.map(g => IDEA_GOALS[g]).join(' / ')}</span></div>
+        <span class="pill acc">${fmt(s.p)} g P</span></div>`; }).join('')}</div>`;
+  } else {
+    const plan = buildPlan(ID.pgoal, ID.tpl, ID.kcal), diff = plan.tot.kcal - ID.kcal;
+    const presets = [...new Set([...PLAN_KCAL, Math.round((st.kcal || 2000) / 50) * 50])].sort((a, b) => a - b);
+    body = `<div class="seg">${Object.entries(IDEA_GOALS).map(([k, l]) => `<button class="${ID.pgoal === k ? 'on' : ''}" data-act="idPGoal" data-k="${k}">${l}</button>`).join('')}</div>
+      <span class="label">Kalorien pro Tag</span>
+      <div class="chips lb-chips">${presets.map(v => `<button class="chip ${ID.kcal === v ? 'on' : ''}" data-act="idKcal" data-v="${v}">${fmt(v)}${v === Math.round((st.kcal || 2000) / 50) * 50 ? ' · Ziel' : ''}</button>`).join('')}</div>
+      <div class="chips lb-chips sub">${PLAN_TEMPLATES[ID.pgoal].map((t, i) => `<button class="chip ${ID.tpl === i ? 'on2' : ''}" data-act="idTpl" data-i="${i}">${t.name}</button>`).join('')}</div>
+      <div class="card" style="margin-top:14px">
+        <div class="grid3"><div class="stat"><b>${fmt(plan.tot.kcal)}</b><span>kcal · ${Math.abs(diff) < 60 ? 'passt' : (diff > 0 ? '+' : '−') + fmt(Math.abs(diff))}</span></div>
+          <div class="stat"><b>${fmt(plan.tot.p)} g</b><span>Protein</span></div><div class="stat"><b style="font-size:16px;white-space:nowrap">${fmt(plan.tot.c)} / ${fmt(plan.tot.f)}</b><span>KH / Fett (g)</span></div></div>
+      </div>
+      <div class="list">${plan.meals.map(m => `<div class="item tap" data-act="ideaOpen" data-id="${m.r.id}"><div class="t"><b>${MEALS[m.meal]} · ${esc(m.r.name)}</b>
+        <span>${fmt(m.portions, 2)} Portion${m.portions === 1 ? '' : 'en'} · ${fmt(m.kcal)} kcal · ${fmt(m.p)} g Protein</span></div><span class="muted">›</span></div>`).join('')}</div>
+      <button class="btn primary block" style="margin-top:14px" data-act="planLog">Plan heute eintragen</button>
+      <div class="row" style="margin-top:12px;justify-content:space-between"><span class="small muted">Einkaufsliste für</span>
+        <div class="chips">${[1, 3, 5, 7].map(d => `<button class="chip ${ID.days === d ? 'on2' : ''}" data-act="idDays" data-d="${d}">${d} ${d === 1 ? 'Tag' : 'Tage'}</button>`).join('')}</div></div>
+      <button class="btn block" style="margin-top:10px" data-act="planShop">Zutaten auf die Einkaufsliste</button>
+      <div class="small muted" style="margin-top:10px">Die Portionen werden automatisch auf dein Kalorienziel skaliert (in Viertel-Portionen). Tippe ein Gericht an für Zutaten und Zubereitung.</div>`;
+  }
+  openSheet(`<h2>Rezeptideen & Tagespläne</h2>
+    <div class="seg"><button class="${ID.tab === 'recipes' ? 'on' : ''}" data-act="idTab" data-k="recipes">Rezepte · ${RECIPE_IDEAS.length}</button><button class="${ID.tab === 'plans' ? 'on' : ''}" data-act="idTab" data-k="plans">Tagespläne</button></div>
+    ${body}
+    <div class="sheet-actions"><button class="btn" data-act="closeSheet">Schließen</button></div>`);
+  $('#sheet .sheet-panel').scrollTop = scroll;
+}
+function ideaSheet(id) {
+  const r = ideaById(id); if (!r) return;
+  const s = ideaPer(r), items = ideaItems(r);
+  openSheet(`<h2>${esc(r.name)}</h2>
+    <div class="chips" style="margin-bottom:14px">${r.goals.map(g => `<span class="chip on2">${IDEA_GOALS[g]}</span>`).join('')}<span class="chip">${IDEA_MEALS[r.meal]}</span><span class="chip">${r.min} Min</span>${r.tags.map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div>
+    <span class="label">Pro Portion</span>
+    <div class="grid3" style="margin-top:8px"><div class="stat"><b>${fmt(s.kcal)}</b><span>kcal</span></div><div class="stat"><b>${fmt(s.p)} g</b><span>Protein</span></div><div class="stat"><b style="font-size:16px;white-space:nowrap">${fmt(s.c)} / ${fmt(s.f)}</b><span>KH / Fett (g)</span></div></div>
+    <h3>Zutaten${r.portions > 1 ? ` für ${r.portions} Portionen` : ''}</h3>
+    <div class="list">${items.map(i => `<div class="item"><div class="t"><b>${esc(i.name)}</b></div><span class="small muted">${fmtQty(i.g)}</span></div>`).join('')}</div>
+    <h3>Zubereitung</h3>
+    <ol class="steps">${r.steps.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
+    <div class="row" style="margin-top:16px"><button class="btn primary grow" data-act="ideaLog" data-id="${r.id}">1 Portion eintragen</button><button class="btn" data-act="ideaShop" data-id="${r.id}">Einkaufsliste</button></div>
+    <div class="sheet-actions"><button class="btn" data-act="ideasBack">‹ Zurück</button><button class="btn" data-act="ideaCopy" data-id="${r.id}">Zu meinen Rezepten</button></div>`);
+}
+function ideasCard() {
+  return `<div class="card tap-card" data-act="ideas"><div class="card-head" style="margin-bottom:8px"><span class="label">Rezeptideen & Tagespläne</span>${ic('sparkle')}</div>
+    <div class="small">${RECIPE_IDEAS.length} eiweißreiche Rezepte für Cut, Maintain & Bulk – und fertige Tagespläne von 1.600 bis 3.500 kcal.</div></div>`;
+}
+
 /* ---------- Akzentfarbe ---------- */
 const ACCENTS = {
   gold: ['Gold', '#e8cd9a', '#b9955c'], platin: ['Platin', '#e6e8ec', '#9aa0aa'], rose: ['Roségold', '#f0c4b8', '#c07f6f'],
@@ -2544,6 +2757,7 @@ VIEWS.food = () => {
     </div>
   </div>
   ${energyCard()}
+  ${ideasCard()}
   ${prepCard()}
   ${!items.length && S.foods.some(f => f.date === addDays(d, -1)) ? `<button class="btn block ghost" data-act="copyDay">⧉ Vortag kopieren</button>` : ''}
   ${Object.entries(MEALS).map(([k, name]) => {
@@ -2972,7 +3186,8 @@ function renderFoodBody() {
     b.innerHTML = `<input id="fq" type="search" placeholder="z.B. Haferflocken, Skyr, Hähnchen …" autocomplete="off">
       <div class="chips lb-chips" id="fcats"></div>
       <div id="fres" style="margin-top:10px"></div>
-      <button class="btn block ghost" style="margin-top:10px" data-act="offSearch">Online in Open Food Facts suchen</button>`;
+      <button class="btn block ghost" style="margin-top:10px" data-act="offSearch">Online in Open Food Facts suchen</button>
+      <button class="btn block ghost" data-act="newCustomFood">+ Eigenes Lebensmittel anlegen</button>`;
     renderFoodResults();
   } else if (FC.mode === 'manual') {
     b.innerHTML = `<label class="f"><span>Name</span><input id="fm_name" placeholder="z.B. Mensa Pasta"></label>
@@ -3001,21 +3216,21 @@ function renderFoodResults(extra) {
   }
   const m = x => !q || foodScore(x.name, q) >= 0;
   const cats = $('#fcats');
-  if (cats) cats.innerHTML = q ? '' : Object.keys(FOOD_CATS).map(c => `<button class="chip ${FC.cat === c ? 'on' : ''}" data-act="foodCat" data-c="${esc(c)}">${c}</button>`).join('');
+  if (cats) cats.innerHTML = q ? '' : [...((S.customFoods || []).length ? ['Eigene'] : []), ...Object.keys(FOOD_CATS)].map(c => `<button class="chip ${FC.cat === c ? 'on' : ''}" data-act="foodCat" data-c="${esc(c)}">${c}</button>`).join('');
   let list;
-  if (!q && FC.cat) list = FOOD_DB.filter(x => x.cat === FC.cat).map(x => ({ ...x, kind: 'per100', tag: 'pro 100 g' }));
+  if (!q && FC.cat) list = foodAll().filter(x => (FC.cat === 'Eigene' ? x.own : x.cat === FC.cat)).map(x => ({ ...x, kind: 'per100', tag: x.own ? '★ Eigenes · pro 100 g' : 'pro 100 g' }));
   else list = [
     ...S.favFoods.filter(m).map(x => ({ ...x, kind: 'abs', tag: '★' })),
     ...recents.filter(m).slice(0, q ? 10 : 8).map(x => ({ ...x, kind: 'abs', tag: 'Zuletzt' })),
     ...(q ? S.recipes.filter(m).map(r => ({ ...perPortion(r), name: r.name, kind: 'recipe', rid: r.id, tag: 'Rezept · pro Portion' })) : []),
-    ...(q ? foodSearch(q).slice(0, 40).map(x => ({ ...x, kind: 'per100', tag: `${x.cat} · pro 100 g` })) : []),
+    ...(q ? foodSearch(q, foodAll()).slice(0, 40).map(x => ({ ...x, kind: 'per100', tag: `${x.own ? '★ Eigenes' : x.cat} · pro 100 g` })) : []),
     ...(extra || []).map(x => ({ ...x, kind: 'per100', tag: 'Online' })),
   ];
   FC.list = list;
   box.innerHTML = list.length ? `${!q && FC.cat ? `<h3 style="margin-top:4px">${esc(FC.cat)} · ${list.length}</h3>` : ''}<div class="list">${list.map((x, i) => `<div class="item tap" data-act="pickFood" data-i="${i}">
     <div class="t"><b>${esc(x.name)}</b><span>${x.tag} · ${fmt(x.kcal)} kcal · P ${fmt(x.p)} · K ${fmt(x.c)} · F ${fmt(x.f)}</span></div>
     ${x.id && x.tag === '★' ? `<button class="x" data-act="delFav" data-id="${x.id}">×</button>` : ''}<span class="muted">${x.kind === 'abs' ? '+' : '›'}</span></div>`).join('')}</div>`
-    : `<div class="empty small">${q ? 'Nichts gefunden – probier die Online-Suche oder trag es manuell ein.' : `Suche unter ${FOOD_DB.length} Lebensmitteln oder stöbere in den Kategorien. Zuletzt Gegessenes erscheint hier für 1-Tap-Logging.`}</div>`;
+    : `<div class="empty small">${q ? 'Nichts gefunden – probier die Online-Suche oder trag es manuell ein.' : `Suche unter ${foodAll().length} Lebensmitteln oder stöbere in den Kategorien. Zuletzt Gegessenes erscheint hier für 1-Tap-Logging.`}</div>`;
 }
 function renderAmount() {
   const x = FC.picked, g0 = x.portion?.g || 100;
@@ -3024,6 +3239,7 @@ function renderAmount() {
     <div class="row" style="margin-bottom:10px">${x.portion ? `<button class="btn sm" data-act="setAmt" data-g="${x.portion.g}">${esc(x.portion.l)} (${x.portion.g} g)</button>` : ''}
       ${[50, 100, 150, 200].map(g => `<button class="btn sm" data-act="setAmt" data-g="${g}">${g} g</button>`).join('')}</div>
     <div class="card" id="fa_prev"></div>
+    ${!x.cat ? '<button class="btn sm ghost block" data-act="saveOnlineFood">★ Als eigenes Lebensmittel speichern</button>' : ''}
     <div class="sheet-actions"><button class="btn" data-act="foodBack">Zurück</button><button class="btn primary" data-act="addAmount">Hinzufügen</button></div>`;
   updateAmountPreview();
 }
@@ -3268,6 +3484,61 @@ function download(blob, name) {
 /* ---------- Actions ---------- */
 const A = {
   applyUpdate,
+  // Eigene Lebensmittel
+  newCustomFood: () => customFoodSheet(null, null, $('#foodBody') ? 'food' : null),
+  editCustomFood: el => customFoodSheet(el.dataset.id),
+  cfBasis: el => { CF.basis = el.dataset.b; $$('#cf_basis button').forEach(b => b.classList.toggle('on', b.dataset.b === CF.basis)); },
+  cfBack: () => { const meal = FC?.meal, date = FC?.date; foodSheet(meal); if (date) FC.date = date; },
+  saveOnlineFood: () => customFoodSheet(null, { ...FC.picked }, 'food'),
+  saveCustomFood: () => {
+    const name = $('#cf_name').value.trim(); if (!name) return toast('Name eingeben');
+    const pg = Math.max(1, num($('#cf_pg').value) || 100), k = CF.basis === 'portion' ? 100 / pg : 1;
+    const v = id => Math.round((num($('#' + id).value) || 0) * k * 10) / 10;
+    const kcal = v('cf_kcal'); if (!kcal) return toast('Kalorien eingeben');
+    const item = { name, cat: $('#cf_cat').value, kcal, p: v('cf_p'), c: v('cf_c'), f: v('cf_f'), portion: { l: $('#cf_pl').value.trim() || '1 Portion', g: pg } };
+    let id = CF.id;
+    if (id) Object.assign(S.customFoods.find(x => x.id === id), item); else { id = uid(); S.customFoods.push({ id, ...item }); }
+    save(); toast(`✓ ${name} gespeichert`);
+    if (CF.back === 'food' && FC) { const meal = FC.meal, date = FC.date; foodSheet(meal); FC.date = date; FC.picked = { ...item, id, own: true }; renderFoodBody(); }
+    else { closeSheet(); render(); }
+  },
+  delCustomFood: el => { if (!confirm('Lebensmittel löschen?')) return; S.customFoods = S.customFoods.filter(x => x.id !== el.dataset.id); save(); closeSheet(); render(); },
+  // Rezeptideen & Tagespläne
+  ideas: () => ideasSheet(),
+  idTab: el => { ID.tab = el.dataset.k; renderIdeas(); },
+  idGoal: el => { ID.goal = el.dataset.k; renderIdeas(true); },
+  idMeal: el => { ID.meal = el.dataset.k; renderIdeas(true); },
+  idPGoal: el => { ID.pgoal = el.dataset.k; ID.tpl = 0; renderIdeas(true); },
+  idKcal: el => { ID.kcal = +el.dataset.v; renderIdeas(true); },
+  idTpl: el => { ID.tpl = +el.dataset.i; renderIdeas(true); },
+  idDays: el => { ID.days = +el.dataset.d; renderIdeas(true); },
+  ideaOpen: el => ideaSheet(el.dataset.id),
+  ideasBack: () => (ID ? renderIdeas() : ideasSheet()),
+  ideaLog: el => {
+    const r = ideaById(el.dataset.id), sp = ideaPer(r), h = new Date().getHours();
+    const meal = r.meal === 'main' ? (h < 16 ? 'lunch' : 'dinner') : r.meal;
+    S.foods.push({ id: uid(), date: UI.tab === 'food' ? UI.foodDate : today(), meal, name: r.name, kcal: sp.kcal, p: sp.p, c: sp.c, f: sp.f, g: Math.round(sp.g) || null, ts: Date.now() });
+    save(); render(); toast(`✓ ${r.name} · ${fmt(sp.kcal)} kcal · ${fmt(sp.p)} g Protein`);
+  },
+  ideaCopy: el => {
+    const r = ideaById(el.dataset.id);
+    if (S.recipes.some(x => x.src === r.id)) return toast('Ist schon in deinen Rezepten');
+    S.recipes.push({ id: uid(), src: r.id, name: r.name, portions: r.portions, items: ideaItems(r) });
+    save(); render(); toast(`✓ In „Meine Rezepte“ – auch für Meal-Prep nutzbar`);
+  },
+  ideaShop: el => { const r = ideaById(el.dataset.id); addToShopping(ideaItems(r).map(i => ({ name: i.name, g: i.g }))); save(); toast('✓ Zutaten auf der Einkaufsliste'); },
+  planLog: () => {
+    const plan = buildPlan(ID.pgoal, ID.tpl, ID.kcal), d = today();
+    if (S.foods.some(f => f.date === d) && !confirm('Heute ist schon Essen eingetragen. Plan zusätzlich eintragen?')) return;
+    plan.meals.forEach((m, i) => { const sp = ideaPer(m.r); S.foods.push({ id: uid(), date: d, meal: m.meal, name: m.r.name + (m.portions !== 1 ? ` (${fmt(m.portions, 2)} Port.)` : ''), kcal: m.kcal, p: m.p, c: m.c, f: m.f, g: Math.round(sp.g * m.portions) || null, ts: Date.now() + i }); });
+    save(); closeSheet(); UI.tab = 'food'; UI.foodDate = d; render(); window.scrollTo(0, 0);
+    toast(`✓ Tagesplan eingetragen · ${fmt(plan.tot.kcal)} kcal`);
+  },
+  planShop: () => {
+    const plan = buildPlan(ID.pgoal, ID.tpl, ID.kcal);
+    plan.meals.forEach(m => addToShopping(ingredientsOf({ portions: m.r.portions, items: ideaItems(m.r) }, m.portions * ID.days)));
+    save(); toast(`✓ Zutaten für ${ID.days} ${ID.days === 1 ? 'Tag' : 'Tage'} auf der Einkaufsliste`);
+  },
   setAccent: el => { S.settings.accent = el.dataset.k; save(); applyAccent(); render(); },
   foodCat: el => { FC.cat = FC.cat === el.dataset.c ? null : el.dataset.c; renderFoodResults(); },
   // Bibliothek

@@ -61,6 +61,10 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - **Gym-Modus:** Vollbild-Fokus auf einen Satz mit großen ± für Gewicht und Wiederholungen, Live-Vergleich, riesigem Pausen-Countdown und Vorschau auf den nächsten Satz. Dazu Sprachansagen auf Deutsch, und der Bildschirm bleibt an.
 - **Adaptiver Kalorienbedarf:** echter Verbrauch aus Ø Kalorien und Gewichtstrend der letzten 28 Tage (1 kg ≈ 7.700 kcal), mit wählbarem Tempo, empfohlenem Ziel, Verlauf und optionaler automatischer Anpassung jeden Montag
 
+- **Eigene Lebensmittel anlegen:** Nährwerte pro 100 g oder pro Portion (wird umgerechnet), mit Kategorie und Portionsgröße. Online oder per Barcode gefundene Produkte lassen sich mit einem Tipp übernehmen.
+- **Rezeptideen:** 24 eiweißreiche Rezepte für Cut, Maintain und Bulk (Frühstück, Hauptgerichte, Snacks), mit Zutaten, Zubereitung und Nährwerten pro Portion, die aus der Datenbank berechnet werden. Eintragen, in „Meine Rezepte“ übernehmen oder auf die Einkaufsliste setzen.
+- **Fertige Tagespläne:** je zwei Varianten pro Ziel. Sie werden automatisch auf 1.600–3.500 kcal oder dein eigenes Ziel skaliert (ca. ±50 kcal). Mit einem Tipp heute eintragen oder die Zutaten für 1–7 Tage auf die Einkaufsliste setzen.
+
 **💪 Training**
 - **Plan-Baukasten**: Trainingsplan aus Trainingstagen zusammenstellen, Sätze pro Übung festlegen, als Rotation (x× pro Woche) oder mit festen Wochentagen. Das geplante Volumen pro Muskel siehst du live beim Bauen.
 - Vorlagen: Push/Pull/Beine, Oberkörper/Unterkörper, Ganzkörper A/B, Zuhause mit Kurzhanteln
