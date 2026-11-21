@@ -10,7 +10,8 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 ## Features
 
 **🍽️ Ernährung**
-- Kalorien, Protein, Kohlenhydrate und Fett pro Mahlzeit loggen
+- Kalorien, Protein, Kohlenhydrate und Fett pro Mahlzeit loggen. Ganz oben gibt es „+ Essen eintragen“, beim Scrollen einen schwebenden Plus-Knopf. Die Mahlzeit wählst du direkt im Dialog, vorausgewählt passend zur Uhrzeit.
+- **Mahlzeiten frei einteilen:** Vorlagen für 3–6 Mahlzeiten, dazu umbenennen, hinzufügen, löschen und umsortieren (bis 8 pro Tag)
 - Eingebaute Lebensmittel-Datenbank mit 312 Lebensmitteln und Gerichten in 15 Kategorien, mit Portionsgrößen. Kategorien kannst du durchstöbern. Die Suche ist tolerant: Umlaute sind egal, „chicken“ findet Hähnchen, „pasta“ findet Nudeln.
 - Online-Suche und Barcode-Scanner über Open Food Facts (Kamera-Scan in Chrome/Android)
 - Favoriten, „Zuletzt gegessen“ zum Loggen mit einem Tipp, Vortag kopieren

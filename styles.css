@@ -529,3 +529,21 @@ tr.warm td input { opacity: .75; font-size: 14px; }
 .wp-meal:first-of-type { border-top: 0; }
 .wp-meal .muted { font-size: 12px; }
 .wp-meal .link { font-weight: 500; font-size: 13.5px; }
+
+/* Essen: schneller eintragen */
+.add-main { margin: 2px 0 6px; padding: 15px 18px; font-size: 15px; }
+.add-main span { font-weight: 450; opacity: .7; }
+.fab {
+  position: fixed; right: max(20px, calc(50% - 260px)); bottom: calc(86px + var(--safe-b)); z-index: 22;
+  width: 58px; height: 58px; border-radius: 50%; border: 0; display: grid; place-items: center; color: var(--accent-ink);
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent2)); box-shadow: 0 12px 30px rgba(0, 0, 0, .5), 0 4px 16px color-mix(in srgb, var(--accent) 30%, transparent);
+  animation: fadein .3s var(--ease);
+}
+.fab svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.fab:active { transform: scale(.94); }
+body.gym-on .fab { display: none; }
+.meal-head .btn.sm[data-act="addFood"] { width: 36px; height: 36px; padding: 0; font-size: 20px; font-weight: 400; display: grid; place-items: center; }
+.meal-pick .chip { font-size: 13px; }
+.ms-name { flex: 1; background: transparent; border: 0; padding: 4px 0; font-weight: 550; border-bottom: 1px dashed transparent; border-radius: 0; }
+.ms-name:focus { background: transparent; border-bottom-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+body.food-tab .view { padding-bottom: 96px; }
