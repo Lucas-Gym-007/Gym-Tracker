@@ -547,3 +547,18 @@ body.gym-on .fab { display: none; }
 .ms-name { flex: 1; background: transparent; border: 0; padding: 4px 0; font-weight: 550; border-bottom: 1px dashed transparent; border-radius: 0; }
 .ms-name:focus { background: transparent; border-bottom-color: color-mix(in srgb, var(--accent) 60%, transparent); }
 body.food-tab .view { padding-bottom: 96px; }
+
+/* Essen vorplanen & abhaken */
+.item.planned .t b, .item.planned > b { color: var(--muted); }
+.item.planned { background: color-mix(in srgb, var(--card) 70%, transparent); }
+.tick { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--faint); background: none; display: grid; place-items: center; padding: 0; color: transparent; transition: all .15s; }
+.tick svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2.6; fill: none; }
+.tick.on { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.tick:active { transform: scale(.9); }
+.plan-open { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.45; }
+.plan-open .btn { flex: none; }
+.plan-pill { display: inline-block; font-size: 10px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent-lo); border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: 2px; }
+.plan-seg { margin-bottom: 12px; }
+.plan-home .list { margin-top: 4px; }
+.plan-home .item { padding: 11px 14px; }
+.plan-open .nw { white-space: nowrap; }

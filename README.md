@@ -11,6 +11,7 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 
 **🍽️ Ernährung**
 - Kalorien, Protein, Kohlenhydrate und Fett pro Mahlzeit loggen. Ganz oben gibt es „+ Essen eintragen“, beim Scrollen einen schwebenden Plus-Knopf. Die Mahlzeit wählst du direkt im Dialog, vorausgewählt passend zur Uhrzeit.
+- **Vorplanen & abhaken:** Mit „Morgen planen“ legst du fest, was du an den nächsten Tagen isst (bis 7 Tage voraus). Geplantes zählt erst, wenn du es abhakst: einzeln, pro Mahlzeit oder alles auf einmal, auch direkt auf der Startseite. Auch heute kannst du Einträge erst „nur planen“. Die Vorschläge unter „Was passt noch?“ rechnen den Plan schon mit ein.
 - **Mahlzeiten frei einteilen:** Vorlagen für 3–6 Mahlzeiten, dazu umbenennen, hinzufügen, löschen und umsortieren (bis 8 pro Tag)
 - Eingebaute Lebensmittel-Datenbank mit 312 Lebensmitteln und Gerichten in 15 Kategorien, mit Portionsgrößen. Kategorien kannst du durchstöbern. Die Suche ist tolerant: Umlaute sind egal, „chicken“ findet Hähnchen, „pasta“ findet Nudeln.
 - Online-Suche und Barcode-Scanner über Open Food Facts (Kamera-Scan in Chrome/Android)
