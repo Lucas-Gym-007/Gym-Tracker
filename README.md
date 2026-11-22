@@ -13,8 +13,8 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - Kalorien, Protein, Kohlenhydrate und Fett pro Mahlzeit loggen. Ganz oben gibt es „+ Essen eintragen“, beim Scrollen einen schwebenden Plus-Knopf. Die Mahlzeit wählst du direkt im Dialog, vorausgewählt passend zur Uhrzeit.
 - **Vorplanen & abhaken:** Mit „Morgen planen“ legst du fest, was du an den nächsten Tagen isst (bis 7 Tage voraus). Geplantes zählt erst, wenn du es abhakst: einzeln, pro Mahlzeit oder alles auf einmal, auch direkt auf der Startseite. Auch heute kannst du Einträge erst „nur planen“. Die Vorschläge unter „Was passt noch?“ rechnen den Plan schon mit ein.
 - **Mahlzeiten frei einteilen:** Vorlagen für 3–6 Mahlzeiten, dazu umbenennen, hinzufügen, löschen und umsortieren (bis 8 pro Tag)
-- Eingebaute Lebensmittel-Datenbank mit 312 Lebensmitteln und Gerichten in 15 Kategorien, mit Portionsgrößen. Kategorien kannst du durchstöbern. Die Suche ist tolerant: Umlaute sind egal, „chicken“ findet Hähnchen, „pasta“ findet Nudeln.
-- Online-Suche und Barcode-Scanner über Open Food Facts (Kamera-Scan in Chrome/Android)
+- Eingebaute Lebensmittel-Datenbank mit 895 Lebensmitteln, Gerichten und Getränken in 18 Kategorien, mit Portionsgrößen. Sie läuft komplett offline und ohne externe Quellen; die App baut keinerlei Verbindungen nach außen auf. Kategorien kannst du durchstöbern. Die Suche ist tolerant: Umlaute sind egal, „chicken“ findet Hähnchen, „pasta“ findet Nudeln.
+- Barcode-Gedächtnis: Ein Produkt einmal scannen und die Werte vom Etikett anlegen, danach wird es beim Scannen sofort erkannt, offline (Kamera-Scan in Chrome/Android, sonst Nummer abtippen).
 - Favoriten, „Zuletzt gegessen“ zum Loggen mit einem Tipp, Vortag kopieren
 - Wasser-Tracker
 
@@ -63,7 +63,7 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - **Gym-Modus:** Vollbild-Fokus auf einen Satz mit großen ± für Gewicht und Wiederholungen, Live-Vergleich, riesigem Pausen-Countdown und Vorschau auf den nächsten Satz. Dazu Sprachansagen auf Deutsch, und der Bildschirm bleibt an.
 - **Adaptiver Kalorienbedarf:** echter Verbrauch aus Ø Kalorien und Gewichtstrend der letzten 28 Tage (1 kg ≈ 7.700 kcal), mit wählbarem Tempo, empfohlenem Ziel, Verlauf und optionaler automatischer Anpassung jeden Montag
 
-- **Eigene Lebensmittel anlegen:** Nährwerte pro 100 g oder pro Portion (wird umgerechnet), mit Kategorie und Portionsgröße. Online oder per Barcode gefundene Produkte lassen sich mit einem Tipp übernehmen.
+- **Eigene Lebensmittel anlegen:** Nährwerte pro 100 g oder pro Portion (wird umgerechnet), mit Kategorie und Portionsgröße. Optional mit Barcode, dann erkennt der Scanner das Produkt wieder. Findet die Suche nichts, kannst du den Suchbegriff direkt als neues Lebensmittel anlegen.
 - **Rezeptideen:** 24 eiweißreiche Rezepte für Cut, Maintain und Bulk (Frühstück, Hauptgerichte, Snacks), mit Zutaten, Zubereitung und Nährwerten pro Portion, die aus der Datenbank berechnet werden. Eintragen, in „Meine Rezepte“ übernehmen oder auf die Einkaufsliste setzen.
 - **Fertige Tagespläne:** je zwei Varianten pro Ziel. Sie werden automatisch auf 1.600–3.500 kcal oder dein eigenes Ziel skaliert (ca. ±50 kcal). Mit einem Tipp heute eintragen oder die Zutaten für 1–7 Tage auf die Einkaufsliste setzen.
 
