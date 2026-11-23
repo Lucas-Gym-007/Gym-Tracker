@@ -1,4 +1,4 @@
-const CACHE = 'gymtracker-v21';
+const CACHE = 'gymtracker-v22';
 const ASSETS = ['./', './index.html', './styles.css', './foods.js', './app.js', './health.js', './manifest.webmanifest',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 // Diese Dateien werden auf neue Versionen geprüft

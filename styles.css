@@ -637,3 +637,12 @@ body.food-tab .view { padding-bottom: 96px; }
 .h-src b { white-space: nowrap; flex: none; }
 .h-src span { min-width: 0; }
 .mp-ctrl .grow { flex: 1; }
+
+/* Regelmäßige Mahlzeiten */
+.wd-chips { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.wd-chips .chip { padding: 8px 0; justify-content: center; text-align: center; min-width: 0; }
+.rep-box { margin: 12px 0 2px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 16px; }
+.rep-box .fl, #rec_days .fl { margin: 0; }
+#rec_days { margin: 14px 0; }
+.rep-ic { width: 13px; height: 13px; vertical-align: -2px; margin-right: 4px; stroke: var(--accent); }
+.btn .rep-ic { width: 15px; height: 15px; }

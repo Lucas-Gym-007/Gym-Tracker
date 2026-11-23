@@ -247,6 +247,7 @@ const DEFAULTS = () => ({
   },
   foods: [], favFoods: [], water: {}, weights: [], measures: [], prs: [],
   sleep: [], dayCheck: {}, mobility: [], // Health: Schlaf, Tages-Check, Mobility-Einheiten
+  recurring: [], recApplied: {}, // regelmäßige Mahlzeiten (nach Wochentagen) + bereits eingetragene Tage
   cardio: [], mealTemplates: [], recipes: [], goals: [],
   habits: [], habitLog: {}, shopping: [], prep: [], checkins: [], tdeeHist: [], customFoods: [], weekPlan: null,
   exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
@@ -392,6 +393,40 @@ function pushFood(e, plan) {
   S.foods.push(x);
 }
 const eaten = f => !f.planned;
+/* ---------- Regelmäßige Mahlzeiten (z.B. jeden Tag Kaffee, mittwochs Döner) ---------- */
+const WD_ORDER = [1, 2, 3, 4, 5, 6, 0], WD_SHORT = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+function daysTxt(days) {
+  const s = [...new Set(days)];
+  if (s.length === 7) return 'Täglich';
+  if (s.length === 5 && [1, 2, 3, 4, 5].every(d => s.includes(d))) return 'Mo–Fr';
+  if (s.length === 2 && s.includes(0) && s.includes(6)) return 'Wochenende';
+  return WD_ORDER.filter(d => s.includes(d)).map(d => WD_SHORT[d]).join(', ');
+}
+// trägt die passenden Regeln für einen Tag ein (jede Regel höchstens einmal pro Tag, nie rückwirkend)
+function applyRecurring(d) {
+  if (!S.recurring?.length || d < today()) return false;
+  const done = (S.recApplied ||= {})[d] ||= [], wd = parseYmd(d).getDay();
+  let ch = false;
+  for (const r of S.recurring) {
+    if (r.paused || !r.days.includes(wd) || done.includes(r.id) || (r.mode === 'auto' && d > today())) continue;
+    pushFood({ id: uid(), date: d, meal: MEALS[r.meal] ? r.meal : fitMeal(r.meal), name: r.name, kcal: r.kcal, p: r.p, c: r.c, f: r.f, g: r.g || null, ts: Date.now(), recId: r.id }, r.mode !== 'auto');
+    done.push(r.id); ch = true;
+  }
+  return ch;
+}
+function applyRecurringAll() {
+  if (!S.recurring?.length) return;
+  const t = today(); let ch = false;
+  for (const d of new Set([t, addDays(t, 1), UI.foodDate])) ch = applyRecurring(d) || ch;
+  for (const d of Object.keys(S.recApplied || {})) if (d < addDays(t, -2)) { delete S.recApplied[d]; ch = true; }
+  if (ch) save();
+}
+// Regel geändert/gelöscht: noch offene (geplante) Einträge ab heute entfernen, damit sie neu passend eingetragen werden
+function resetRecurring(id) {
+  const t = today();
+  S.foods = S.foods.filter(f => !(f.recId === id && f.date >= t && f.planned));
+  for (const [d, ids] of Object.entries(S.recApplied || {})) if (d >= t && !S.foods.some(f => f.recId === id && f.date === d)) S.recApplied[d] = ids.filter(x => x !== id);
+}
 const plannedOpen = d => S.foods.filter(f => f.date === d && f.planned);
 const PLAN_DAYS = 7;
 function dayLabel(d) {
@@ -2672,6 +2707,7 @@ const ICONS = {
   alert: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
   activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
   calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+  repeat: 'M17 2l4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3',
 };
 const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24"><path d="${ICONS[n]}"/></svg>`;
 function sparkline(vals, { w = 140, h = 34 } = {}) {
@@ -2844,8 +2880,8 @@ VIEWS.food = () => {
   const label = dayLabel(d);
   const items = S.foods.filter(f => f.date === d);
   const tm = addDays(today(), 1), tmN = S.foods.filter(f => f.date === tm).length, tmK = dayTotals(tm, 'all').kcal;
-  const row = f => `<div class="item ${f.planned ? 'planned' : ''}">${!fut && (f.planned || f.fromPlan) ? `<button class="tick ${f.planned ? '' : 'on'}" data-act="eatFood" data-id="${f.id}" aria-label="${f.planned ? 'Als gegessen abhaken' : 'Zurück auf geplant'}">${ic('check')}</button>` : ''}<div class="t"><b>${esc(f.name)}</b>
-        <span>${f.planned && !fut ? 'geplant · ' : ''}${f.g ? fmt(f.g) + ' g · ' : ''}P ${fmt(f.p)} · K ${fmt(f.c)} · F ${fmt(f.f)}</span></div>
+  const row = f => `<div class="item tap ${f.planned ? 'planned' : ''}" data-act="foodItem" data-id="${f.id}">${!fut && (f.planned || f.fromPlan) ? `<button class="tick ${f.planned ? '' : 'on'}" data-act="eatFood" data-id="${f.id}" aria-label="${f.planned ? 'Als gegessen abhaken' : 'Zurück auf geplant'}">${ic('check')}</button>` : ''}<div class="t"><b>${esc(f.name)}</b>
+        <span>${f.recId ? ic('repeat', 'rep-ic') : ''}${f.planned && !fut ? 'geplant · ' : ''}${f.g ? fmt(f.g) + ' g · ' : ''}P ${fmt(f.p)} · K ${fmt(f.c)} · F ${fmt(f.f)}</span></div>
         <b>${fmt(f.kcal)}</b><button class="x" data-act="delFood" data-id="${f.id}" aria-label="Löschen">×</button></div>`;
   return `
   <div class="row" style="justify-content:space-between;align-items:flex-start"><h1>Ernährung</h1><button class="btn sm" data-act="library" style="margin-top:6px">Rezepte & Vorlagen</button></div>
@@ -2877,6 +2913,7 @@ VIEWS.food = () => {
   }).join('')}
   <button class="btn sm ghost block" style="margin-top:4px" data-act="mealsSheet">Mahlzeiten anpassen · ${Object.keys(MEALS).length} pro Tag</button>
   <h3>Planen & Ideen</h3>
+  <div class="notice" data-act="recList">${ic('calendar')}<div class="t">Regelmäßige Mahlzeiten${(S.recurring || []).length ? ` · ${S.recurring.length}` : ''}<span>${(S.recurring || []).length ? S.recurring.slice(0, 3).map(r => `${esc(r.name)} ${daysTxt(r.days)}`).join(' · ') : 'z.B. jeden Morgen Kaffee oder mittwochs Döner – trägt sich automatisch ein'}</span></div>${ic('chev', 'chev')}</div>
   ${isToday ? `<div class="notice plan-tm" data-act="planDay" data-d="${tm}">${ic('calendar')}<div class="t">Morgen planen<span>${tmN ? `${tmN} ${tmN === 1 ? 'Eintrag' : 'Einträge'} · ${fmt(tmK)} kcal geplant` : 'Lege fest, was du morgen isst – dann nur noch abhaken'}</span></div>${ic('chev', 'chev')}</div>` : ''}
   ${fut ? `<button class="btn block ghost" style="margin-bottom:14px" data-act="planDay" data-d="${today()}">← Zurück zu heute</button>` : ''}
   ${fitCard(d)}
@@ -3267,6 +3304,7 @@ function compareSheet(aId, bId) {
 
 /* ---------- Render ---------- */
 function render() {
+  applyRecurringAll();
   $('#view').innerHTML = VIEWS[UI.tab]();
   $$('.tabbar button').forEach(b => {
     b.classList.toggle('on', b.dataset.tab === UI.tab);
@@ -3296,6 +3334,36 @@ function measureSheet() {
     <div class="grid2">${F.map(([k, l]) => `<label class="f"><span>${l}</span><input id="m_${k}" inputmode="decimal" placeholder="${last[k] != null ? fmt(last[k], 1) : ''}"></label>`).join('')}</div>
     <div class="small muted">Leere Felder werden nicht gespeichert. Grau = letzter Wert.</div>
     <div class="sheet-actions"><button class="btn" data-act="closeSheet">Abbrechen</button><button class="btn primary" data-act="saveMeasure">Speichern</button></div>`);
+}
+
+/* ---- Eintrag antippen ---- */
+function foodItemSheet(id) {
+  const f = S.foods.find(x => x.id === id); if (!f) return;
+  const r = f.recId && (S.recurring || []).find(x => x.id === f.recId);
+  openSheet(`<h2>${esc(f.name)}</h2>
+    <div class="small muted" style="margin-bottom:12px">${f.g ? fmt(f.g) + ' g · ' : ''}${fmt(f.kcal)} kcal · P ${fmt(f.p)} · K ${fmt(f.c)} · F ${fmt(f.f)}${f.planned ? ' · geplant' : ''}</div>
+    <div class="fl"><span>Mahlzeit</span><div class="chips">${Object.entries(MEALS).map(([k, l]) => `<button class="chip ${k === f.meal ? 'on' : ''}" data-act="fiMeal" data-id="${f.id}" data-k="${k}">${esc(l)}</button>`).join('')}</div></div>
+    ${r ? `<div class="card accent" style="margin-top:6px"><b>${ic('repeat', 'rep-ic')} Regelmäßig: ${daysTxt(r.days)}</b><div class="small muted">${esc(mealName(r.meal))} · ${r.mode === 'auto' ? 'automatisch als gegessen' : 'zum Abhaken'}${r.paused ? ' · pausiert' : ''}</div></div>` : ''}
+    <div class="sheet-actions"><button class="btn danger" data-act="delFood" data-id="${f.id}">Löschen</button><button class="btn" data-act="${r ? 'recEdit' : 'recFromFood'}" data-id="${r ? r.id : f.id}">${ic('repeat', 'rep-ic')} ${r ? 'Regel bearbeiten' : 'Regelmäßig'}</button></div>`);
+}
+let RC2 = null;
+function recSheet(r, isNew) {
+  RC2 = { ...r, days: [...r.days], isNew };
+  openSheet(`<h2>${isNew ? 'Regelmäßig einplanen' : 'Regelmäßige Mahlzeit'}</h2>
+    <div class="card"><b>${esc(r.name)}</b><div class="small muted">${r.g ? fmt(r.g) + ' g · ' : ''}${fmt(r.kcal)} kcal · P ${fmt(r.p)} · K ${fmt(r.c)} · F ${fmt(r.f)}</div></div>
+    <div id="rec_days">${repDaysHtml(RC2.days, 'Wochentage')}</div>
+    <div class="fl"><span>Mahlzeit</span><div class="chips" id="rec_meal">${Object.entries(MEALS).map(([k, l]) => `<button class="chip ${k === RC2.meal ? 'on' : ''}" data-act="recMeal" data-k="${k}">${esc(l)}</button>`).join('')}</div></div>
+    <div class="fl"><span>Eintragen als</span><div class="seg" id="rec_mode">${[['plan', 'Geplant – zum Abhaken'], ['auto', 'Automatisch gegessen']].map(([k, l]) => `<button class="${(RC2.mode || 'plan') === k ? 'on' : ''}" data-act="recMode" data-k="${k}">${l}</button>`).join('')}</div></div>
+    ${!isNew ? `<label class="row" style="margin:8px 0"><input type="checkbox" id="rec_pause" ${r.paused ? 'checked' : ''}> <span>Pausieren</span></label>` : ''}
+    <div class="sheet-actions">${!isNew ? `<button class="btn danger" data-act="recDel" data-id="${r.id}">Löschen</button>` : '<button class="btn" data-act="closeSheet">Abbrechen</button>'}<button class="btn primary" data-act="recSave">Speichern</button></div>`);
+}
+function recListSheet() {
+  const L = S.recurring || [];
+  openSheet(`<h2>Regelmäßige Mahlzeiten</h2>
+    <div class="small muted" style="margin-bottom:12px">Tragen sich an den gewählten Wochentagen automatisch ein – als geplant zum Abhaken oder direkt als gegessen.</div>
+    ${L.length ? `<div class="list">${L.map(r => `<div class="item tap" data-act="recEdit" data-id="${r.id}"><div class="t"><b>${esc(r.name)}${r.paused ? ' <span class="muted">· pausiert</span>' : ''}</b><span>${daysTxt(r.days)} · ${esc(mealName(r.meal))} · ${fmt(r.kcal)} kcal${r.mode === 'auto' ? ' · automatisch' : ''}</span></div><span class="muted">›</span></div>`).join('')}</div>`
+      : '<div class="empty small">Noch keine. Füge ein Lebensmittel hinzu und wähle unten „Regelmäßig einplanen“ – oder tippe im Essen-Tab einen Eintrag an.</div>'}
+    <div class="sheet-actions"><button class="btn" data-act="closeSheet">Schließen</button><button class="btn primary" data-act="recNew">+ Neu</button></div>`);
 }
 
 /* ---- Essen hinzufügen ---- */
@@ -3368,16 +3436,36 @@ function renderAmount() {
     <div class="row" style="margin-bottom:10px">${x.portion ? `<button class="btn sm" data-act="setAmt" data-g="${x.portion.g}">${esc(x.portion.l)} (${x.portion.g} g)</button>` : ''}
       ${[50, 100, 150, 200].map(g => `<button class="btn sm" data-act="setAmt" data-g="${g}">${g} g</button>`).join('')}</div>
     <div class="card" id="fa_prev"></div>
+    <div class="rep-box">${repDaysHtml(FC.rep || [])}</div>
     <div class="sheet-actions"><button class="btn" data-act="foodBack">Zurück</button><button class="btn primary" data-act="addAmount">Hinzufügen</button></div>`;
   updateAmountPreview();
+}
+function repDaysHtml(days, title = 'Regelmäßig einplanen (optional)') {
+  return `<div class="fl"><span>${title}</span><div class="wd-chips">${WD_ORDER.map(d => `<button class="chip ${days.includes(d) ? 'on' : ''}" data-act="repDay" data-d="${d}">${WD_SHORT[d]}</button>`).join('')}</div>
+    <div class="row" style="gap:6px;margin-top:8px">${[['all', 'Täglich'], ['wk', 'Mo–Fr'], ['we', 'Wochenende'], ['none', 'Keine']].map(([k, l]) => `<button class="btn sm ghost" data-act="repPreset" data-k="${k}">${l}</button>`).join('')}</div>
+    <div class="small muted" id="rep_hint" style="margin-top:6px">${days.length ? `${daysTxt(days)} – wird automatisch als geplant eingetragen.` : 'Wähle Wochentage, dann trägt sich das automatisch ein.'}</div></div>`;
+}
+function repRefresh(el, days) {
+  const box = el.closest('.fl')?.parentElement || el.closest('.rep-box');
+  box.querySelectorAll('[data-act=repDay]').forEach(c => c.classList.toggle('on', days.includes(+c.dataset.d)));
+  const h = box.querySelector('#rep_hint'); if (h) h.textContent = days.length ? `${daysTxt(days)} – wird automatisch eingetragen.` : 'Keine Wochentage gewählt.';
 }
 function updateAmountPreview() {
   const x = FC.picked, g = num($('#fa_g')?.value) || 0, k = g / 100;
   const el = $('#fa_prev'); if (el) el.innerHTML = `<div class="grid2"><div class="stat"><b>${fmt(x.kcal * k)} kcal</b><span>${fmt(g)} g</span></div>
     <div class="stat"><b style="font-size:14px">P ${fmt(x.p * k)} · K ${fmt(x.c * k)} · F ${fmt(x.f * k)}</b><span>Makros (g)</span></div></div>`;
 }
+// Regel aus einem Eintrag; der Eintrag zählt als Vorkommen für seinen Tag (keine Doppelung)
+function makeRecurring(f, days, meal, mode) {
+  const r = { id: uid(), name: f.name, kcal: f.kcal, p: f.p, c: f.c, f: f.f, g: f.g || null, days: [...days], meal: meal || f.meal, mode: mode || 'plan' };
+  (S.recurring ||= []).push(r);
+  if (f.date >= today() && days.includes(parseYmd(f.date).getDay())) { f.recId = r.id; ((S.recApplied ||= {})[f.date] ||= []).push(r.id); }
+  return r;
+}
 function addFoodEntry(x) {
-  pushFood({ id: uid(), date: FC.date, meal: FC.meal, name: x.name, kcal: +x.kcal || 0, p: +x.p || 0, c: +x.c || 0, f: +x.f || 0, g: x.g || null, ts: Date.now() }, FC.plan);
+  const e = { id: uid(), date: FC.date, meal: FC.meal, name: x.name, kcal: +x.kcal || 0, p: +x.p || 0, c: +x.c || 0, f: +x.f || 0, g: x.g || null, ts: Date.now() };
+  pushFood(e, FC.plan);
+  if (FC.rep?.length) { const r = makeRecurring(S.foods.at(-1), FC.rep, FC.meal, 'plan'); FC.rep = []; save(); render(); return toast(`${x.name} · ${daysTxt(r.days)} eingeplant`); }
   save(); render(); toast(`${FC.plan ? '📋 Geplant' : '✓'} ${x.name} (${fmt(x.kcal)} kcal)`);
 }
 /* ---- Nährwerttabelle scannen: Texterkennung offline auf dem Gerät (tesseract.js in vendor/ocr) ---- */
@@ -4074,7 +4162,46 @@ const A = {
   water: el => { const d = today(); S.water[d] = Math.max(0, (S.water[d] || 0) + +el.dataset.ml); save(); render(); },
   quickFood: () => foodSheet(),
   addFood: el => foodSheet(el.dataset.meal),
-  delFood: el => { S.foods = S.foods.filter(f => f.id !== el.dataset.id); save(); render(); },
+  delFood: el => { S.foods = S.foods.filter(f => f.id !== el.dataset.id); save(); if (sheetOpen() && $('#sheet [data-act=fiMeal]')) closeSheet(); render(); },
+  foodItem: el => foodItemSheet(el.dataset.id),
+  fiMeal: el => { const f = S.foods.find(x => x.id === el.dataset.id); if (!f) return; f.meal = el.dataset.k; save(); render(); foodItemSheet(f.id); },
+  recFromFood: el => { const f = S.foods.find(x => x.id === el.dataset.id); if (!f) return; RC2 = null; recSheet({ id: null, name: f.name, kcal: f.kcal, p: f.p, c: f.c, f: f.f, g: f.g || null, days: [parseYmd(f.date).getDay()], meal: f.meal, mode: 'plan', fromFood: f.id }, true); },
+  recEdit: el => { const r = (S.recurring || []).find(x => x.id === el.dataset.id); if (r) recSheet(r, false); },
+  recList: () => recListSheet(),
+  recNew: () => { closeSheet(); foodSheet(); FC.rep = [new Date().getDay()]; toast('Lebensmittel wählen – unten Wochentage festlegen'); },
+  repDay: el => {
+    const d = +el.dataset.d, box = el.closest('#rec_days') ? RC2 : FC; if (!box) return;
+    const days = box === RC2 ? RC2.days : (FC.rep ||= []);
+    const i = days.indexOf(d); if (i >= 0) days.splice(i, 1); else days.push(d);
+    repRefresh(el, days);
+  },
+  repPreset: el => {
+    const box = el.closest('#rec_days') ? RC2 : FC; if (!box) return;
+    const v = { all: [0, 1, 2, 3, 4, 5, 6], wk: [1, 2, 3, 4, 5], we: [0, 6], none: [] }[el.dataset.k];
+    if (box === RC2) RC2.days = [...v]; else FC.rep = [...v];
+    repRefresh(el, box === RC2 ? RC2.days : FC.rep);
+  },
+  recMeal: el => { RC2.meal = el.dataset.k; $$('#rec_meal .chip').forEach(c => c.classList.toggle('on', c === el)); },
+  recMode: el => { RC2.mode = el.dataset.k; $$('#rec_mode button').forEach(b => b.classList.toggle('on', b === el)); },
+  recSave: () => {
+    if (!RC2?.days.length) return toast('Mindestens einen Wochentag wählen');
+    if (RC2.isNew) {
+      const f = S.foods.find(x => x.id === RC2.fromFood);
+      const r = makeRecurring(f || { ...RC2, date: '0000' }, RC2.days, RC2.meal, RC2.mode);
+      toast(`✓ ${r.name} · ${daysTxt(r.days)}`);
+    } else {
+      const r = S.recurring.find(x => x.id === RC2.id); if (!r) return;
+      Object.assign(r, { days: [...RC2.days], meal: RC2.meal, mode: RC2.mode, paused: !!$('#rec_pause')?.checked });
+      resetRecurring(r.id); toast('✓ Gespeichert');
+    }
+    save(); closeSheet(); render();
+  },
+  recDel: el => {
+    if (!confirm('Regelmäßige Mahlzeit löschen? Bereits abgehakte Einträge bleiben erhalten.')) return;
+    const id = el.dataset.id; resetRecurring(id); S.recurring = S.recurring.filter(r => r.id !== id);
+    S.foods.forEach(f => { if (f.recId === id) delete f.recId; });
+    save(); closeSheet(); render(); toast('Gelöscht');
+  },
   foodDay: el => { const n = UI.foodDate = addDays(UI.foodDate, +el.dataset.n); if (n > addDays(today(), PLAN_DAYS)) UI.foodDate = addDays(today(), PLAN_DAYS); render(); },
   planDay: el => { UI.tab = 'food'; UI.foodDate = el.dataset.d || addDays(today(), 1); render(); window.scrollTo(0, 0); },
   copyDay: () => {
