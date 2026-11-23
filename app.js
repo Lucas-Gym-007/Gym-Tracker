@@ -292,6 +292,7 @@ function load() {
       for (const e of st.exercises) if (!e.eq) e.eq = EQ_OF[e.id] || 'other';
       st.meta.seedV = 4;
     }
+    for (const x of st.customFoods || []) delete x.barcode; // Barcode-Funktion entfernt
     return st;
   } catch (e) { console.warn('Laden fehlgeschlagen', e); return d; }
 }
@@ -312,7 +313,7 @@ function openSheet(html) {
   $('#sheet').classList.remove('hidden');
   $('#sheet .sheet-panel').scrollTop = 0;
 }
-function closeSheet() { stopScan(); stopCam(); $('#sheet').classList.add('hidden'); $('#sheet .sheet-panel').innerHTML = ''; }
+function closeSheet() { stopCam(); $('#sheet').classList.add('hidden'); $('#sheet .sheet-panel').innerHTML = ''; }
 const sheetOpen = () => !$('#sheet').classList.contains('hidden');
 
 function ring(pct, color, label, sub) {
@@ -1993,9 +1994,12 @@ function gymNext() {
   const e = S.active.entries[i], si = e.sets.findIndex(s => !s.done), x = e.sets[si], ex = exById(e.exId);
   return { ei: i, si, name: ex?.name || '', w: x.w || 0, r: x.r ?? x.t ?? ex?.repMin };
 }
+// Nur Stimmen, die auf dem Gerät laufen (localService) – Online-Stimmen würden den Text an einen Server schicken
+const localVoice = () => { try { return speechSynthesis.getVoices().find(v => v.localService && /^de/i.test(v.lang)) || null; } catch { return null; } };
 function speak(t) {
   if (!S.settings.gymVoice || !('speechSynthesis' in window)) return;
-  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'de-DE'; u.rate = 1.03; speechSynthesis.speak(u); } catch {}
+  const v = localVoice(); if (!v) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.voice = v; u.lang = v.lang; u.rate = 1.03; speechSynthesis.speak(u); } catch {}
 }
 const sayKg = w => (w ? `${fmt(w, 2).replace(',', ' Komma ')} Kilo` : 'Körpergewicht');
 async function gymWake() { try { if (GM && 'wakeLock' in navigator && !document.hidden) GM.wake = await navigator.wakeLock.request('screen'); } catch {} }
@@ -2190,7 +2194,6 @@ function customFoodSheet(id, pre, back) {
       <button class="link small" data-act="ocrPaste">Oder Text der Tabelle einfügen</button>
     </div>
     <label class="f"><span>Name</span><input id="cf_name" value="${esc(x.name || '')}" placeholder="z.B. Mein Proteinbrot (Bäcker XY)"></label>
-    <label class="f"><span>Barcode (optional)</span><input id="cf_code" inputmode="numeric" value="${esc(x.barcode || '')}" placeholder="EAN vom Etikett – dann erkennt der Scanner es wieder"></label>
     <label class="f"><span>Kategorie</span><select id="cf_cat">${['Eigene', ...Object.keys(FOOD_CATS)].map(c => `<option ${c === (x.cat && x.cat !== 'Online' ? x.cat : 'Eigene') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
     <div class="grid2">
       <label class="f"><span>Portion (Bezeichnung)</span><input id="cf_pl" value="${esc(x.portion?.l || '1 Portion')}"></label>
@@ -3275,14 +3278,13 @@ function foodSheet(meal) {
   openSheet(`<h2>${FC.date > today() ? `Planen · ${dayLabel(FC.date)}` : 'Essen eintragen'}</h2>
     ${FC.date === today() ? `<div class="seg plan-seg" id="fcPlan"><button data-act="fcPlan" data-v="0" class="${FC.plan ? '' : 'on'}">✓ Gegessen</button><button data-act="fcPlan" data-v="1" class="${FC.plan ? 'on' : ''}">📋 Nur planen</button></div>` : ''}
     <div class="chips lb-chips meal-pick" id="fcMeals" style="margin:0 0 14px">${Object.entries(MEALS).map(([k, l]) => `<button class="chip ${k === meal ? 'on' : ''}" data-act="fcMeal" data-k="${k}">${esc(l)}</button>`).join('')}</div>
-    <div class="seg" id="foodSeg">${[['search', 'Suchen'], ['saved', 'Gespeichert'], ['manual', 'Manuell'], ['barcode', 'Barcode']].map(([m, l]) => `<button data-act="foodMode" data-m="${m}" class="${m === 'search' ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="seg" id="foodSeg">${[['search', 'Suchen'], ['saved', 'Gespeichert'], ['manual', 'Manuell'], ['label', 'Etikett']].map(([m, l]) => `<button data-act="foodMode" data-m="${m}" class="${m === 'search' ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div id="foodBody"></div>`);
   renderFoodBody();
 }
 function renderFoodBody() {
   const b = $('#foodBody'); if (!b) return;
   $$('#foodSeg button').forEach(x => x.classList.toggle('on', x.dataset.m === FC.mode));
-  stopScan();
   if (FC.picked) return FC.picked.recipe ? renderRecipeAmount() : renderAmount();
   if (FC.mode === 'saved') return renderSaved(b);
   if (FC.mode === 'search') {
@@ -3300,15 +3302,9 @@ function renderFoodBody() {
       <label class="row" style="margin-bottom:10px"><input type="checkbox" id="fm_fav"> <span>Als Favorit speichern ★</span></label>
       <button class="btn primary block" data-act="addManual">Hinzufügen</button>`;
   } else {
-    const can = 'BarcodeDetector' in window && navigator.mediaDevices?.getUserMedia;
-    const nb = (S.customFoods || []).filter(x => x.barcode).length;
-    b.innerHTML = `<p class="small muted" style="margin:0 0 12px">Scanne ein Produkt einmal und übernimm die Werte vom Etikett – ab dann erkennt die App es sofort wieder. Alles bleibt offline auf deinem Handy.${nb ? ` <b style="color:var(--text)">${nb} Produkt${nb === 1 ? '' : 'e'} gespeichert.</b>` : ''}</p>
-      ${can ? '<button class="btn primary block" data-act="scanStart">Kamera-Scanner starten</button><video id="scanVideo" class="scan hidden" playsinline muted></video><div class="hr"></div>' : ''}
-      <label class="f"><span>Barcode-Nummer (EAN)</span><input id="fb_code" inputmode="numeric" placeholder="z.B. 4008400404127"></label>
-      <button class="btn block" data-act="barcodeLookup">Produkt suchen</button>
-      ${can ? '' : '<p class="small muted">Barcode-Kamera wird von diesem Browser nicht unterstützt – Nummer einfach abtippen.</p>'}
-      <button class="btn block ghost" style="margin-top:8px" data-act="cfScanNew">${ic('camera')} Ohne Barcode: Nährwerttabelle scannen</button>
-      <div id="fbres" class="small muted" style="margin-top:8px"></div>`;
+    b.innerHTML = `<div class="ocr-box"><p class="small muted" style="margin:0">Fotografiere die Nährwerttabelle einer Verpackung – die App liest die Werte direkt auf dem Handy aus (nichts wird hochgeladen) und speichert das Produkt in deiner Bibliothek.</p>
+      <button class="btn primary block" data-act="cfScanNew">${ic('camera')} Nährwerttabelle scannen</button>
+      <button class="btn block ghost" data-act="newCustomFood">Werte selbst eintippen</button></div>`;
   }
 }
 function renderFoodResults() {
@@ -3354,16 +3350,6 @@ function updateAmountPreview() {
 function addFoodEntry(x) {
   pushFood({ id: uid(), date: FC.date, meal: FC.meal, name: x.name, kcal: +x.kcal || 0, p: +x.p || 0, c: +x.c || 0, f: +x.f || 0, g: x.g || null, ts: Date.now() }, FC.plan);
   save(); render(); toast(`${FC.plan ? '📋 Geplant' : '✓'} ${x.name} (${fmt(x.kcal)} kcal)`);
-}
-function barcodeLookup(code) {
-  code = String(code || '').replace(/\D/g, '');
-  if (!code) return toast('Barcode eingeben');
-  const hit = (S.customFoods || []).find(x => x.barcode === code);
-  if (hit) { FC.picked = { ...hit, own: true }; return renderFoodBody(); }
-  const out = $('#fbres');
-  if (out) out.innerHTML = `<div class="card" style="margin-top:4px"><b>Neues Produkt</b><div class="small muted" style="margin-top:4px">Barcode ${code} ist noch nicht in deiner Bibliothek. Leg es einmal mit den Werten vom Etikett an – beim nächsten Scan ist es sofort da.</div>
-    <button class="btn primary block" style="margin-top:12px" data-act="cfFromCodeScan" data-code="${code}">${ic('camera')} Nährwerttabelle scannen</button>
-    <button class="btn block ghost" style="margin-top:8px" data-act="cfFromCode" data-code="${code}">Werte selbst eintippen</button></div>`;
 }
 /* ---- Nährwerttabelle scannen: Texterkennung offline auf dem Gerät (tesseract.js in vendor/ocr) ---- */
 let OCR_LIB = null;
@@ -3460,7 +3446,7 @@ function parseLabel(raw) {
   r.n = ['kcal', 'f', 'c', 'p'].filter(k => r[k] != null).length;
   if (r.kcal == null && r.f != null && r.c != null && r.p != null) { r.kcal = Math.round(4 * r.p + 4 * r.c + 9 * r.f); r.est = true; }
   const pm = all.match(/(portion|serving|riegel|stuck|flasche|becher|scheibe|packung|dose|glas|beutel)\s*[(=:]?\s*(?:a\s)?(\d{1,4}(?:,\d)?)\s*(g|9|ml)\b/);
-  if (pm && toN(pm[2]) > 0 && toN(pm[2]) <= 2000) { const w = { serving: 'portion', stuck: 'Stück' }[pm[1]] || pm[1]; r.portion = { l: '1 ' + w[0].toUpperCase() + w.slice(1), g: toN(pm[2]) }; }
+  if (pm && toN(pm[2]) > 0 && toN(pm[2]) <= 2000) { const w = { serving: 'portion', stuck: 'Stück' }[pm[1]] || pm[1]; r.portion = { l: '1 ' + w[0].toUpperCase() + w.slice(1), g: toN(pm[2]), u: pm[3] === 'ml' ? 'ml' : 'g' }; }
   return r;
 }
 function ocrApply(text) {
@@ -3479,24 +3465,10 @@ function ocrApply(text) {
   const at = r.p != null && r.c != null && r.f != null ? 4 * r.p + 4 * r.c + 9 * r.f : null;
   const ok = at != null && r.kcal != null && !r.est && Math.abs(r.kcal - at) <= Math.max(20, r.kcal * 0.12);
   const miss = [['kcal', 'Kalorien'], ['f', 'Fett'], ['c', 'Kohlenhydrate'], ['p', 'Eiweiß']].filter(([k]) => r[k] == null).map(([, l]) => l);
-  ocrSay(`<b style="color:var(--text)">Erkannt pro 100 g:</b> ${r.kcal != null ? fmt(r.kcal) + ' kcal' : '–'} · F ${r.f != null ? dec(r.f) : '–'} · KH ${r.c != null ? dec(r.c) : '–'} · E ${r.p != null ? dec(r.p) : '–'}${r.portion ? ` · Portion ${esc(r.portion.l)} = ${dec(r.portion.g)} g` : ''}<br>
+  ocrSay(`<b style="color:var(--text)">Erkannt pro 100 g:</b> ${r.kcal != null ? fmt(r.kcal) + ' kcal' : '–'} · F ${r.f != null ? dec(r.f) : '–'} · KH ${r.c != null ? dec(r.c) : '–'} · E ${r.p != null ? dec(r.p) : '–'}${r.portion ? ` · Portion ${esc(r.portion.l)} = ${dec(r.portion.g)} ${r.portion.u}` : ''}<br>
     ${ok ? '<span style="color:var(--ok)">✓ Werte passen zusammen</span> – kurz prüfen, Name eintragen, fertig.' : miss.length ? `⚠ Nicht erkannt: ${miss.join(', ')} – bitte ergänzen.` : r.est ? '⚠ Kalorien aus den Makros berechnet – bitte prüfen.' : '⚠ Werte passen nicht ganz zusammen – bitte mit dem Etikett vergleichen.'}`);
   if (!$('#cf_name')?.value) $('#cf_name')?.focus({ preventScroll: true });
 }
-
-let scan = null;
-async function scanStart() {
-  const v = $('#scanVideo'); if (!v) return;
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    v.srcObject = stream; v.classList.remove('hidden'); await v.play();
-    const det = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
-    scan = { stream, timer: setInterval(async () => {
-      try { const codes = await det.detect(v); if (codes.length) { const c = codes[0].rawValue; stopScan(); navigator.vibrate?.(60); $('#fb_code').value = c; barcodeLookup(c); } } catch {}
-    }, 350) };
-  } catch { toast('Kamera nicht verfügbar'); }
-}
-function stopScan() { if (!scan) return; clearInterval(scan.timer); scan.stream.getTracks().forEach(t => t.stop()); scan = null; $('#scanVideo')?.classList.add('hidden'); }
 
 /* ---- Übungen ---- */
 function exercisePicker() { exLibrary('workout'); }
@@ -3766,9 +3738,7 @@ const A = {
   editCustomFood: el => customFoodSheet(el.dataset.id),
   cfBasis: el => { CF.basis = el.dataset.b; $$('#cf_basis button').forEach(b => b.classList.toggle('on', b.dataset.b === CF.basis)); },
   cfBack: () => { const meal = FC?.meal, date = FC?.date; foodSheet(meal); if (date) FC.date = date; },
-  cfFromCode: el => customFoodSheet(null, { barcode: el.dataset.code }, 'food'),
-  cfFromCodeScan: el => { customFoodSheet(null, { barcode: el.dataset.code }, 'food'); $('#labelFile').click(); },
-  cfScanNew: () => { stopScan(); customFoodSheet(null, null, 'food'); $('#labelFile').click(); },
+  cfScanNew: () => { customFoodSheet(null, null, 'food'); $('#labelFile').click(); },
   ocrPick: () => $('#labelFile').click(),
   ocrPaste: () => { ocrSay(`<textarea id="cf_ocrtxt" rows="6" placeholder="Text der Nährwerttabelle hier einfügen.&#10;iPhone: Foto in der Fotos-App öffnen, Text gedrückt halten → Alle auswählen → Kopieren."></textarea><button class="btn sm" style="margin-top:8px" data-act="ocrParse">Werte übernehmen</button>`); $('#cf_ocrtxt')?.focus(); },
   ocrParse: () => ocrApply($('#cf_ocrtxt')?.value || ''),
@@ -3779,10 +3749,7 @@ const A = {
     const v = id => Math.round((num($('#' + id).value) || 0) * k * 10) / 10;
     const kcal = v('cf_kcal'); if (!kcal) return toast('Kalorien eingeben');
     const item = { name, cat: $('#cf_cat').value, kcal, p: v('cf_p'), c: v('cf_c'), f: v('cf_f'), portion: { l: $('#cf_pl').value.trim() || '1 Portion', g: pg } };
-    const code = ($('#cf_code')?.value || '').replace(/\D/g, '');
-    if (code) { item.barcode = code; S.customFoods.forEach(o => { if (o.barcode === code && o.id !== CF.id) delete o.barcode; }); }
     let id = CF.id;
-    if (id && !code) delete S.customFoods.find(x => x.id === id)?.barcode;
     if (id) Object.assign(S.customFoods.find(x => x.id === id), item); else { id = uid(); S.customFoods.push({ id, ...item }); }
     save(); toast(`✓ ${name} gespeichert`);
     if (CF.back === 'food' && FC) { const meal = FC.meal, date = FC.date; foodSheet(meal); FC.date = date; FC.picked = { ...item, id, own: true }; renderFoodBody(); }
@@ -3849,7 +3816,10 @@ const A = {
   // Gym-Modus
   gymOpen: () => gymOpen(),
   gymClose: () => gymClose(),
-  gymVoice: () => { S.settings.gymVoice = !S.settings.gymVoice; save(); renderGym(); if (S.settings.gymVoice) speak('Sprachansage an'); },
+  gymVoice: () => {
+    S.settings.gymVoice = !S.settings.gymVoice; save(); renderGym();
+    if (S.settings.gymVoice) { if ('speechSynthesis' in window && localVoice()) speak('Sprachansage an'); else toast('Keine deutsche Offline-Stimme auf diesem Gerät – Ansage bleibt stumm'); }
+  },
   gymGoto: el => { const i = +el.dataset.i; if (i >= 0 && i < S.active.entries.length) { GM.ei = i; renderGym(); } },
   gymAdj: el => {
     const e = S.active.entries[GM.ei], ex = exById(e.exId), x = e.sets.find(s => !s.done); if (!x) return;
@@ -4115,7 +4085,7 @@ const A = {
     if ($('#fm_fav').checked) S.favFoods.push({ id: uid(), ...x });
     addFoodEntry(x); renderFoodBody();
   },
-  barcodeLookup: () => barcodeLookup($('#fb_code').value), scanStart,
+
 
   addWeight: weightSheet,
   saveWeight: () => {

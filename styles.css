@@ -232,7 +232,6 @@ tr.done .chk { background: linear-gradient(180deg, var(--accent-hi), var(--accen
 }
 .toast.show { transform: translate(-50%, 0); }
 
-video.scan { width: 100%; border-radius: 18px; background: #000; aspect-ratio: 4/3; object-fit: cover; }
 .prlist { padding-left: 18px; }
 .prlist li { margin: 6px 0; }
 .hr { height: 1px; background: var(--line); margin: 18px 0; }
