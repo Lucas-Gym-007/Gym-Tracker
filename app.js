@@ -233,7 +233,7 @@ const DEFAULT_PROGRAMS = [
   { id: 'home', name: 'Zuhause mit Kurzhanteln', perWeek: 3, days: ['home'] },
 ];
 const mkPrograms = () => DEFAULT_PROGRAMS.map(p => ({ ...p, days: p.days.map(rid => ({ rid, wd: null })) }));
-const SEED_V = 4; // Version der Standard-Daten (für Updates bestehender Daten)
+const SEED_V = 5; // Version der Standard-Daten (für Updates bestehender Daten)
 
 const DEFAULTS = () => ({
   v: 1,
@@ -242,6 +242,7 @@ const DEFAULTS = () => ({
     name: '', sex: 'm', age: 25, height: 180, activity: 1.55, goal: 'cut', goalWeight: null,
     kcal: 2200, protein: 150, carbs: 220, fat: 70, water: 2500, weeklyWorkouts: 3,
     weighDay: 1, weighTime: '08:00', bar: 20, vol: {}, focus: [],
+    prog: { min: 8, max: 12, up: 12 }, // Wdh-Bereich & Steiger-Schwelle für alle Übungen
   },
   foods: [], favFoods: [], water: {}, weights: [], measures: [], prs: [],
   cardio: [], mealTemplates: [], recipes: [], goals: [],
@@ -291,6 +292,10 @@ function load() {
       for (const e of DEFAULT_EXERCISES) if (!st.exercises.some(x => x.id === e.id)) st.exercises.push({ ...e, pm: [...e.pm], sm: [...e.sm] });
       for (const e of st.exercises) if (!e.eq) e.eq = EQ_OF[e.id] || 'other';
       st.meta.seedV = 4;
+    }
+    if (st.meta.seedV < 5) { // Progression: alle Übungen nutzen den Bereich aus den Einstellungen
+      for (const e of st.exercises) e.ownRange = false;
+      st.meta.seedV = 5;
     }
     for (const x of st.customFoods || []) delete x.barcode; // Barcode-Funktion entfernt
     return st;
@@ -447,34 +452,40 @@ function exHistory(exId) { // neueste zuerst
 }
 function workSets(sess) { const wk = Math.max(...sess.sets.map(s => s.w || 0)); return { wk, sets: sess.sets.filter(s => (s.w || 0) === wk) }; }
 
+// Wdh-Bereich einer Übung: aus den Einstellungen – außer die Übung hat einen eigenen
+function RR(ex) {
+  if (ex?.ownRange) return { min: ex.repMin, max: ex.repMax, up: ex.upAt || ex.repMax };
+  const p = S.settings.prog || { min: 8, max: 12, up: 12 };
+  return { min: p.min, max: p.max, up: p.up || p.max };
+}
 /*
- * Double Progression:
- *  - Alle Ziel-Sätze am oberen Ende des Wdh-Bereichs → Gewicht + Steigerung, Wdh zurück aufs untere Ende
- *  - 2 Einheiten in Folge mit gleichem Gewicht unter dem unteren Wdh-Ende → Deload −10 %
- *  - sonst: Gewicht halten und pro Satz +1 Wdh anpeilen
+ * Progression – es geht immer vorwärts, kein Deload:
+ *  - Letzte Einheit in allen Arbeitssätzen ≥ „Steigern ab“-Wdh → Gewicht + Steigerung, Wdh zurück auf den Bereichsanfang
+ *  - sonst: gleiches Gewicht, je Satz +1 Wdh (bis zur Steiger-Schwelle)
  */
 function suggest(ex) {
-  const h = exHistory(ex.id);
+  const h = exHistory(ex.id), R = RR(ex);
   const bw = !ex.start && !ex.barbell;
   const kg = w => (bw && w === 0 ? 'Körpergewicht' : `${fmt(w, 2)} kg${bw ? ' Zusatz' : ''}`);
-  if (!h.length) return { w: ex.start || 0, reps: Array(ex.sets).fill(ex.repMin), status: 'new', text: `Erstes Mal: Starte mit einem Gewicht, das du sauber ${ex.repMin}–${ex.repMax}× schaffst.` };
-  const a = workSets(h[0]);
-  const need = h[0].target || ex.sets; // geplante Sätze der letzten Einheit
-  if (a.sets.length >= need && a.sets.slice(0, need).every(s => s.r >= ex.repMax)) {
-    const nw = roundTo(a.wk + ex.inc, 0.25);
-    return { w: nw, reps: Array(ex.sets).fill(ex.repMin), status: 'up', text: `⬆ Level up! Letztes Mal alle Sätze mit ${ex.repMax}+ Wdh. → jetzt ${kg(nw)} für ${ex.repMin}+ Wdh.` };
-  }
-  if (h[1]) {
-    const b = workSets(h[1]);
-    const fail = x => x.sets.some(s => s.r < ex.repMin);
-    if (fail(a) && fail(b) && a.wk === b.wk && a.wk > 0) {
-      const nw = Math.max(0, roundTo(a.wk * 0.9, ex.inc));
-      return { w: nw, reps: Array(ex.sets).fill(ex.repMax), status: 'deload', text: `↘ 2× Ziel verfehlt → Deload auf ${kg(nw)} (−10 %) und von dort wieder hocharbeiten.` };
-    }
-  }
-  const reps = Array.from({ length: ex.sets }, (_, i) => Math.min(ex.repMax, (a.sets[i]?.r ?? a.sets.at(-1).r) + 1));
-  const total = a.sets.slice(0, need).reduce((s, x) => s + x.r, 0);
-  return { w: a.wk, reps, status: 'hold', text: `➡ ${kg(a.wk)} halten und je Satz +1 Wdh. holen. Fortschritt bis Level-up: ${total}/${need * ex.repMax} Wdh.` };
+  if (!h.length) return { w: ex.start || 0, reps: Array(ex.sets).fill(R.min), last: null, bw, status: 'new', badge: 'Erstes Mal', text: `Wähle ein Gewicht, das du sauber ${R.min}–${R.max}× schaffst.` };
+  const a = workSets(h[0]), need = h[0].target || ex.sets;
+  const last = { w: a.wk, reps: a.sets.map(s => s.r) };
+  const next = roundTo(a.wk + ex.inc, 0.25);
+  if (a.sets.length >= need && a.sets.slice(0, need).every(s => s.r >= R.up))
+    return { w: next, reps: Array(ex.sets).fill(R.min), last, bw, status: 'up', badge: `+${fmt(ex.inc, 2)} kg`, text: `Letztes Mal alle Sätze mit ${R.up}+ Wdh. → heute mehr Gewicht, Wdh. wieder ab ${R.min}.` };
+  const reps = Array.from({ length: ex.sets }, (_, i) => Math.min(R.up, Math.max(1, (a.sets[i]?.r ?? a.sets.at(-1).r) + 1)));
+  const more = reps.some((r, i) => a.sets[i] && r > a.sets[i].r);
+  return { w: a.wk, reps, last, bw, status: 'reps', badge: more ? '+1 Wdh.' : 'Alle Sätze', text: more ? `Gleiches Gewicht, je Satz +1 Wdh. Mit ${R.up} Wdh. in allen Sätzen geht's auf ${kg(next)}.` : `Schaff alle ${need} Sätze mit ${R.up} Wdh. – dann geht's auf ${kg(next)}.` };
+}
+// „Letztes Mal → Heute“-Anzeige
+const repsTxt = r => (r.length > 1 && r.every(x => x === r[0]) ? `${r.length}×${r[0]}` : r.join('/'));
+function progBox(s, compact) {
+  const kg = w => (s.bw && !w ? 'KG' : `${fmt(w, 2)} kg`);
+  return `<div class="prog ${s.status}${compact ? ' compact' : ''}">
+    <div class="pcol"><span class="label">Letztes Mal</span><b>${s.last ? `${kg(s.last.w)} · ${repsTxt(s.last.reps)}` : '–'}</b></div>
+    <div class="parrow">→</div>
+    <div class="pcol"><span class="label">Heute</span><b>${kg(s.w)} · ${repsTxt(s.reps)}</b></div>
+    <span class="pbadge">${s.status === 'up' ? '⬆ ' : ''}${s.badge}</span></div>`;
 }
 function plates(total) {
   const bar = S.settings.bar || 20;
@@ -1476,7 +1487,9 @@ function runAchievements() {
   const have = new Set(S.meta.badges.map(b => b.id)), fresh = [];
   for (const [id, title, , , fn] of BADGES) { if (have.has(id)) continue; const [v, max] = fn(c); if (v >= max) { S.meta.badges.push({ id, date: today() }); fresh.push(title); } }
   if (!goalsHit.length && !fresh.length) return;
-  save(); if (!sheetOpen()) render();
+  // nicht neu zeichnen, während jemand in Einstellungen/Formularen tippt – sonst gehen ungespeicherte Eingaben verloren
+  const typing = document.activeElement?.matches?.('input, textarea, select') && $('#view').contains(document.activeElement);
+  save(); if (!sheetOpen() && !typing && UI.tab !== 'more') render();
   toast(goalsHit.length ? `Ziel erreicht: ${goalsHit[0].title}` : fresh.length === 1 ? `Abzeichen freigeschaltet: ${fresh[0]}` : `${fresh.length} neue Abzeichen freigeschaltet`);
   if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.([40, 30, 40]);
 }
@@ -1763,7 +1776,7 @@ function checkinSheet() {
 function checkinAdvice(c) {
   const tips = [], goal = S.settings.goal;
   if (c.sleep <= 2) tips.push('Schlaf ist gerade dein größter Hebel: 7–9 Stunden, feste Zeiten und 30 Minuten vor dem Schlafen kein Handy.');
-  if (c.energy <= 2 && c.training <= 2) tips.push('Energie und Training sind schwach – plane eine Deload-Woche (ca. 30–40 % weniger Volumen) oder einen zusätzlichen Ruhetag.');
+  if (c.energy <= 2 && c.training <= 2) tips.push('Energie und Training sind schwach – gönn dir einen zusätzlichen Ruhetag und achte auf Schlaf und genug Kalorien.');
   else if (c.energy <= 2) tips.push('Wenig Energie: Prüfe Schlaf, Wasser und ob du genug isst – ein zu großes Defizit kostet Leistung.');
   if (c.hunger >= 4 && goal === 'cut') tips.push('Starker Hunger: mehr Protein und sättigende Lebensmittel (Gemüse, Kartoffeln, Skyr). Hält es an, iss 100–150 kcal mehr.');
   if (c.hunger <= 2 && goal === 'bulk') tips.push('Wenig Hunger im Aufbau: Flüssige Kalorien (Shake, Milch) und energiedichte Snacks wie Nüsse helfen.');
@@ -1893,7 +1906,7 @@ const TIPS = [
   ['Training', 'Kontrolliert absenken (2–3 Sekunden) verbessert Technik und Muskelreiz.'],
   ['Training', 'Zum Aufwärmen reichen meist 2–3 leichte Sätze der ersten Übung – kein langes Cardio nötig.'],
   ['Training', 'Volle Bewegungsamplitude schlägt Ego-Gewicht – besonders die gedehnte Position ist wichtig fürs Wachstum.'],
-  ['Training', 'Stagnierst du drei Wochen lang, hilft oft eine Deload-Woche mit rund 40 % weniger Volumen.'],
+  ['Training', 'Steckst du bei einer Übung fest, hilft oft schon mehr Schlaf, etwas mehr Essen oder ein Satz mehr pro Woche.'],
   ['Training', 'Grundübungen zuerst, Isolation danach – so hast du die meiste Kraft für die schweren Sachen.'],
   ['Training', 'Schau dir im Workout den Live-Vergleich an: Ein Satz mehr oder 2,5 kg mehr als letztes Mal ist Fortschritt.'],
   ['Ernährung', 'Ziel: etwa 1,6–2,2 g Protein pro kg Körpergewicht am Tag.'],
@@ -1992,7 +2005,7 @@ function gymNext() {
   if (!S.active) return null;
   const i = gymFirstOpen(GM?.ei || 0); if (i == null) return null;
   const e = S.active.entries[i], si = e.sets.findIndex(s => !s.done), x = e.sets[si], ex = exById(e.exId);
-  return { ei: i, si, name: ex?.name || '', w: x.w || 0, r: x.r ?? x.t ?? ex?.repMin };
+  return { ei: i, si, name: ex?.name || '', w: x.w || 0, r: x.r ?? x.t ?? RR(ex).min };
 }
 // Nur Stimmen, die auf dem Gerät laufen (localService) – Online-Stimmen würden den Text an einen Server schicken
 const localVoice = () => { try { return speechSynthesis.getVoices().find(v => v.localService && /^de/i.test(v.lang)) || null; } catch { return null; } };
@@ -2043,11 +2056,11 @@ function renderGym() {
     } else if (!ex || si < 0) {
       body = `<div class="gym-ex gym-end"><h1>${esc(ex?.name || 'Übung')} erledigt</h1><button class="gym-done" data-act="gymGoto" data-i="${gymFirstOpen(ei)}">Nächste Übung</button></div>`;
     } else {
-      const x = e.sets[si], prev = exHistory(ex.id)[0], p = x.type === 'warm' ? null : prev?.sets[workIdx(e, si)], r = x.r ?? x.t ?? ex.repMin;
+      const x = e.sets[si], prev = exHistory(ex.id)[0], p = x.type === 'warm' ? null : prev?.sets[workIdx(e, si)], r = x.r ?? x.t ?? RR(ex).min;
       body = `<div class="gym-ex">
         <span class="label">Übung ${ei + 1} / ${a.entries.length} · ${x.type === 'warm' ? `Aufwärmsatz ${e.sets.slice(0, si + 1).filter(z => z.type === 'warm').length}` : `Satz ${workIdx(e, si) + 1} / ${WK(e.sets).length}`}${x.type === 'drop' ? ' · Drop' : x.type === 'fail' ? ' · bis Versagen' : ''}</span>
         <h1>${esc(ex.name)}</h1>
-        <div class="small muted">${p ? `Letztes Mal ${fmt(p.w, 2)} kg × ${p.r}` : 'Erstes Mal – sauber ausführen'}${ex.note ? ` · ${esc(ex.note)}` : ''}</div>
+        <div class="small muted">${p ? `Letztes Mal ${fmt(p.w, 2)} kg × ${p.r}` : 'Erstes Mal – sauber ausführen'}${x.type !== 'warm' && x.t != null ? ` → <b style="color:var(--accent)">heute ${fmt(x.w ?? 0, 2)} kg × ${x.t}</b>` : ''}${ex.note ? ` · ${esc(ex.note)}` : ''}</div>
         <div class="gym-val"><span class="label">Gewicht</span><div class="gym-step"><button data-act="gymAdj" data-f="w" data-d="-1" aria-label="weniger">−</button><b>${fmt(x.w ?? 0, 2)}<small>kg</small></b><button data-act="gymAdj" data-f="w" data-d="1" aria-label="mehr">+</button></div>
           ${ex.barbell ? `<div class="small muted">${plates(x.w || 0)}</div>` : ''}</div>
         <div class="gym-val"><span class="label">Wiederholungen</span><div class="gym-step"><button data-act="gymAdj" data-f="r" data-d="-1" aria-label="weniger">−</button><b>${r}</b><button data-act="gymAdj" data-f="r" data-d="1" aria-label="mehr">+</button></div></div>
@@ -2909,7 +2922,7 @@ function trainOverview() {
     const s = suggest(ex), b = bestSet(exHistory(ex.id).flatMap(x => x.sets));
     return `<div class="item tap" data-act="openExercise" data-id="${ex.id}"><div class="t"><b>${esc(ex.name)}</b>
       <span>Bestes: ${b ? `${fmt(b.w, 2)} kg × ${b.r}` : '–'} · e1RM ${b?.w ? fmt(e1rm(b.w, b.r), 1) + ' kg' : '–'}</span></div>
-      <span class="pill ${s.status === 'up' ? 'up' : s.status === 'deload' ? 'down' : ''}">${s.status === 'up' ? '⬆ ' : s.status === 'deload' ? '↘ ' : ''}${fmt(s.w, 2)} kg</span></div>`;
+      <span class="pill ${s.status === 'up' ? 'up' : ''}">${s.status === 'up' ? '⬆ ' : ''}${fmt(s.w, 2)} kg × ${s.reps[0]}</span></div>`;
   }).join('')}</div>` : ''}
 
   <h3>Verlauf</h3>
@@ -2946,9 +2959,9 @@ function workoutLogger() {
     const pl = ex.barbell ? plates(e.sets.find(x => !x.done)?.w ?? e.sets[0]?.w ?? 0) : '';
     return `<div class="card">
       <div class="ex-head"><button class="link" data-act="openExercise" data-id="${ex.id}">${esc(ex.name)}</button>
-        <span class="muted small">${ex.repMin}–${ex.repMax} Wdh · ${mmss(ex.rest)} Pause</span></div>
+        <span class="muted small">${RR(ex).min}–${RR(ex).max} Wdh · ${mmss(ex.rest)} Pause</span></div>
       <input class="note-in" data-exnote="${ex.id}" value="${esc(ex.note || '')}" placeholder="+ Notiz (z.B. Sitz Stufe 4)" autocomplete="off">
-      <div class="sugg ${s.status}">${s.text}</div>
+      ${progBox(s)}
       ${pl ? `<div class="plates">${pl}</div>` : ''}
       <table class="sets"><tr><th>Satz</th><th>Vorher</th><th>kg</th><th>Wdh</th><th>✓</th></tr>
       ${e.sets.map((x, si) => { const wi = workIdx(e, si), pp = x.type === 'warm' ? null : prev?.sets[wi]; return `<tr class="${x.done ? 'done' : ''} ${x.type === 'warm' ? 'warm' : ''}">
@@ -3118,6 +3131,18 @@ VIEWS.more = () => {
       <label class="f"><span>Trainings / Woche</span><input id="s_weeklyWorkouts" inputmode="numeric" value="${st.weeklyWorkouts}"></label>
     </div>
     <label class="f"><span>Gewicht Langhantelstange (kg) – für den Scheibenrechner</span><input id="s_bar" inputmode="decimal" value="${st.bar}"></label>
+    <button class="btn primary block" data-act="saveSettings">Speichern</button>
+  </div>
+
+  <div class="card">
+    <h2>Progression</h2>
+    <p class="small muted" style="margin-top:0">Gilt für alle Übungen. Einzelnen Übungen kannst du beim Bearbeiten einen eigenen Bereich geben. Es wird immer gesteigert: erst die Wiederholungen, dann das Gewicht.</p>
+    <div class="grid3">
+      <label class="f"><span>Wdh. von</span><input id="s_pmin" inputmode="numeric" value="${st.prog.min}"></label>
+      <label class="f"><span>Wdh. bis</span><input id="s_pmax" inputmode="numeric" value="${st.prog.max}"></label>
+      <label class="f"><span>Gewicht steigern ab</span><input id="s_pup" inputmode="numeric" value="${st.prog.up}"></label>
+    </div>
+    <div class="prog-ex small" id="s_pex">${progExample(st.prog)}</div>
     <button class="btn primary block" data-act="saveSettings">Speichern</button>
   </div>
 
@@ -3484,9 +3509,9 @@ function exerciseSheet(id) {
   const pts = h.slice().reverse().map(x => { const b = bestSet(x.sets); return [x.start, b.w ? e1rm(b.w, b.r) : b.r]; });
   const best = bestSet(h.flatMap(x => x.sets));
   openSheet(`<div class="card-head"><h2 style="margin:0">${esc(ex.name)}</h2><button class="btn sm" data-act="editExercise" data-id="${ex.id}">✎ Bearbeiten</button></div>
-    <div class="small muted" style="margin-bottom:10px">${muscleText(ex)} · ${ex.sets} Sätze × ${ex.repMin}–${ex.repMax} Wdh · Steigerung +${fmt(ex.inc, 2)} kg · Pause ${mmss(ex.rest)}</div>
+    <div class="small muted" style="margin-bottom:10px">${muscleText(ex)} · ${ex.sets} Sätze × ${RR(ex).min}–${RR(ex).max} Wdh · Steigern ab ${RR(ex).up} Wdh · +${fmt(ex.inc, 2)} kg · Pause ${mmss(ex.rest)}</div>
     ${ex.note ? `<div class="small" style="margin-bottom:8px"><span class="muted">Notiz:</span> ${esc(ex.note)}</div>` : ''}
-    <div class="sugg ${s.status}"><b>Nächstes Training:</b> ${s.text}</div>
+    <span class="label">Nächstes Training</span>${progBox(s)}<div class="small muted" style="margin:-4px 0 8px">${s.text}</div>
     <div class="grid3" style="margin:10px 0">
       <div class="stat"><b>${best ? fmt(best.w, 2) + '×' + best.r : '–'}</b><span>Bester Satz</span></div>
       <div class="stat"><b>${best?.w ? fmt(e1rm(best.w, best.r), 1) : '–'}</b><span>e1RM (kg)</span></div>
@@ -3500,7 +3525,7 @@ function exerciseSheet(id) {
     <div class="sheet-actions"><button class="btn" data-act="closeSheet">Schließen</button></div>`);
 }
 function exerciseEditSheet(id, fromPicker) {
-  const ex = exById(id) || { name: '', muscle: 'Brust', repMin: 8, repMax: 12, inc: 2.5, sets: 3, rest: 90, barbell: false, start: 20, pm: [], sm: [] };
+  const ex = exById(id) || { name: '', muscle: 'Brust', repMin: 8, repMax: 12, inc: 2.5, sets: 3, rest: 90, barbell: false, start: 20, pm: [], sm: [], ownRange: false };
   EC = { pm: new Set(ex.pm || []), sm: new Set(ex.sm || []) };
   openSheet(`<h2>${id ? 'Übung bearbeiten' : 'Neue Übung'}</h2>
     <label class="f"><span>Name</span><input id="e_name" value="${esc(ex.name)}"></label>
@@ -3509,14 +3534,18 @@ function exerciseEditSheet(id, fromPicker) {
     <label class="f"><span>Gerät</span><select id="e_eq">${Object.entries(EQ).map(([k, l]) => `<option value="${k}" ${(ex.eq || 'other') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div class="grid2">
       <label class="f"><span>Ziel-Sätze</span><input id="e_sets" inputmode="numeric" value="${ex.sets}"></label>
-      <label class="f"><span>Wdh. min</span><input id="e_repMin" inputmode="numeric" value="${ex.repMin}"></label>
-      <label class="f"><span>Wdh. max (→ Level-up)</span><input id="e_repMax" inputmode="numeric" value="${ex.repMax}"></label>
       <label class="f"><span>Steigerung (kg)</span><input id="e_inc" inputmode="decimal" value="${ex.inc}"></label>
       <label class="f"><span>Pause (Sek.)</span><input id="e_rest" inputmode="numeric" value="${ex.rest}"></label>
       <label class="f"><span>Startgewicht (kg)</span><input id="e_start" inputmode="decimal" value="${ex.start}"></label>
       <label class="f row" style="margin-top:22px"><input type="checkbox" id="e_barbell" ${ex.barbell ? 'checked' : ''}> <span style="display:inline;margin:0">Langhantel</span></label>
     </div>
-    <div class="small muted">So funktioniert die Progression: Schaffst du in <b>allen</b> Ziel-Sätzen die max. Wdh., wirst du automatisch um die Steigerung hochgestuft. Verfehlst du 2× in Folge die min. Wdh., gibt's einen Deload (−10 %).</div>
+    <label class="row" style="margin:4px 0 10px"><input type="checkbox" id="e_own" ${ex.ownRange ? 'checked' : ''}> <span>Eigener Wdh-Bereich für diese Übung <span class="muted">(sonst ${S.settings.prog.min}–${S.settings.prog.max}, steigern ab ${S.settings.prog.up} – aus den Einstellungen)</span></span></label>
+    <div class="grid3 ${ex.ownRange ? '' : 'hidden'}" id="e_range">
+      <label class="f"><span>Wdh. von</span><input id="e_repMin" inputmode="numeric" value="${ex.ownRange ? ex.repMin : S.settings.prog.min}"></label>
+      <label class="f"><span>Wdh. bis</span><input id="e_repMax" inputmode="numeric" value="${ex.ownRange ? ex.repMax : S.settings.prog.max}"></label>
+      <label class="f"><span>Steigern ab</span><input id="e_upAt" inputmode="numeric" value="${ex.ownRange ? ex.upAt || ex.repMax : S.settings.prog.up}"></label>
+    </div>
+    <div class="small muted">So funktioniert die Progression: Schaffst du in <b>allen</b> Sätzen die Steiger-Wdh., gibt's beim nächsten Mal mehr Gewicht (+ Steigerung) und du startest wieder unten im Bereich. Sonst peilst du je Satz +1 Wdh. an. Es geht immer vorwärts – kein Deload.</div>
     <div class="sheet-actions">${id && !exHistory(id).length && !S.routines.some(r => r.exIds.includes(id)) ? `<button class="btn danger" data-act="delExercise" data-id="${id}">Löschen</button>` : ''}
       <button class="btn" data-act="closeSheet">Abbrechen</button><button class="btn primary" data-act="saveExercise" data-id="${id || ''}" data-pick="${fromPicker ? 1 : ''}">Speichern</button></div>`);
   emChips();
@@ -3578,13 +3607,13 @@ function finishWorkout() {
   const w = { id: a.id, name: a.name, routineId: a.routineId, date: a.date, start: a.start, end: Date.now(), entries };
   S.workouts.push(w); S.active = null; UI.rest = null; save();
   const vol = entries.reduce((s, e) => s + WK(e.sets).reduce((b, x) => b + x.w * x.r, 0), 0);
-  const ups = entries.map(e => ({ ex: exById(e.exId), s: suggest(exById(e.exId)) })).filter(x => x.ex && x.s.status !== 'hold');
+  const ups = entries.map(e => ({ ex: exById(e.exId) })).filter(x => x.ex).map(x => ({ ...x, s: suggest(x.ex) }));
   render();
   openSheet(`<div style="text-align:center"><div style="color:var(--accent);margin:6px 0 10px">${ic('trophy').replace('class="ic ', 'style="width:44px;height:44px" class="ic ')}</div><h2>Starkes Training</h2>
     <div class="grid3" style="margin:12px 0"><div class="stat"><b>${mmss((w.end - w.start) / 1000)}</b><span>Dauer</span></div>
     <div class="stat"><b>${entries.reduce((n, e) => n + WK(e.sets).length, 0)}</b><span>Sätze</span></div><div class="stat"><b>${fmt(vol)}</b><span>kg Volumen</span></div></div></div>
     ${prs.filter(p => !p.first).length ? `<h3>Neue Bestleistungen</h3><ul class="prlist">${prs.filter(p => !p.first).map(p => `<li><b>${esc(p.ex?.name)}</b>: ${fmt(p.now.w, 2)} kg × ${p.now.r}${p.now.w ? ` (e1RM ${fmt(e1rm(p.now.w, p.now.r), 1)} kg)` : ''}</li>`).join('')}</ul>` : ''}
-    ${ups.length ? `<h3>Nächstes Mal</h3>${ups.map(x => `<div class="sugg ${x.s.status}"><b>${esc(x.ex.name)}:</b> ${x.s.status === 'up' ? `⬆ Hochgestuft auf ${fmt(x.s.w, 2)} kg!` : `↘ Deload auf ${fmt(x.s.w, 2)} kg`}</div>`).join('')}` : ''}
+    ${ups.length ? `<h3>Nächstes Mal</h3><div class="list next-list">${ups.map(x => `<div class="item"><div class="t"><b>${esc(x.ex.name)}</b><span>${x.s.bw && !x.s.w ? 'KG' : fmt(x.s.w, 2) + ' kg'} · ${repsTxt(x.s.reps)}</span></div><span class="pill ${x.s.status === 'up' ? 'up' : ''}">${x.s.status === 'up' ? '⬆ ' : ''}${x.s.badge}</span></div>`).join('')}</div>` : ''}
     <div class="sheet-actions"><button class="btn" data-act="shareWorkout" data-id="${w.id}">Teilen</button><button class="btn primary" data-act="closeSheet">Stark</button></div>`);
   navigator.vibrate?.([80, 60, 80]);
 }
@@ -3825,13 +3854,13 @@ const A = {
     const e = S.active.entries[GM.ei], ex = exById(e.exId), x = e.sets.find(s => !s.done); if (!x) return;
     const d = +el.dataset.d;
     if (el.dataset.f === 'w') x.w = Math.max(0, roundTo((x.w || 0) + d * (ex.inc || 2.5), 0.25));
-    else x.r = Math.max(0, (x.r ?? x.t ?? ex.repMin) + d);
+    else x.r = Math.max(0, (x.r ?? x.t ?? RR(ex).min) + d);
     navigator.vibrate?.(10); save(); renderGym();
   },
   gymDone: () => {
     const e = S.active.entries[GM.ei], ex = exById(e.exId), si = e.sets.findIndex(s => !s.done); if (si < 0) return;
     const x = e.sets[si];
-    x.r = x.r ?? x.t ?? ex.repMin; x.w = x.w ?? 0; x.done = true;
+    x.r = x.r ?? x.t ?? RR(ex).min; x.w = x.w ?? 0; x.done = true;
     if (x.type !== 'warm') e.sets.slice(si + 1).forEach(n => { if (!n.done && n.type !== 'warm') n.w = x.w; });
     navigator.vibrate?.(30); save();
     if (!e.sets.some(s => !s.done)) { const nx = gymFirstOpen(GM.ei); if (nx != null) GM.ei = nx; }
@@ -4138,11 +4167,12 @@ const A = {
     if (!EC.pm.size) return toast('Mindestens einen Hauptmuskel wählen');
     const v = {
       name, muscle: MUSCLE[[...EC.pm][0]].region, pm: [...EC.pm], sm: [...EC.sm], sets: Math.max(1, num($('#e_sets').value) || 3),
-      repMin: Math.max(1, num($('#e_repMin').value) || 8), repMax: Math.max(1, num($('#e_repMax').value) || 12),
+      ownRange: $('#e_own').checked, repMin: Math.max(1, num($('#e_repMin').value) || 8), repMax: Math.max(1, num($('#e_repMax').value) || 12), upAt: num($('#e_upAt').value) || null,
       inc: Math.max(0.25, num($('#e_inc').value) || 2.5), rest: Math.max(0, num($('#e_rest').value) || 90),
       start: num($('#e_start').value) || 0, barbell: $('#e_barbell').checked, eq: $('#e_eq').value,
     };
     if (v.repMax < v.repMin) [v.repMin, v.repMax] = [v.repMax, v.repMin];
+    v.upAt = Math.min(v.repMax, Math.max(v.repMin, v.upAt || v.repMax));
     let id = el.dataset.id;
     if (id) Object.assign(exById(id), v); else { id = uid(); S.exercises.push({ id, ...v }); }
     save();
@@ -4304,6 +4334,17 @@ const A = {
   },
 };
 
+function progExample(p) {
+  const steps = []; for (let r = p.min; r <= p.up && steps.length < 6; r++) steps.push(`60 kg × ${r}`);
+  return `<span class="muted">Beispiel (3 Sätze):</span> ${steps.join(' → ')}${p.up - p.min > 5 ? ' → …' : ''} → <b style="color:var(--accent)">62,5 kg × ${p.min}</b><br><span class="muted">Gesteigert wird, sobald du in <b>allen</b> Sätzen ${p.up} Wdh. schaffst.</span>`;
+}
+function readProgForm() {
+  if (!$('#s_pmin')) return;
+  let min = Math.round(num($('#s_pmin').value) || 8), max = Math.round(num($('#s_pmax').value) || 12);
+  min = Math.max(1, Math.min(min, 50)); max = Math.max(1, Math.min(max, 50)); if (max < min) [min, max] = [max, min];
+  const up = Math.min(max, Math.max(min, Math.round(num($('#s_pup').value) || max)));
+  S.settings.prog = { min, max, up };
+}
 function readSettingsForm() {
   const st = S.settings, n = (id, min = 0) => { const v = num($('#s_' + id)?.value); return v != null && v >= min ? v : st[id]; };
   if (!$('#s_kcal')) return;
@@ -4313,6 +4354,7 @@ function readSettingsForm() {
     water: n('water', 250), weeklyWorkouts: Math.max(1, n('weeklyWorkouts', 1)), bar: n('bar'),
     weighDay: +$('#s_weighDay').value, weighTime: $('#s_weighTime').value || '08:00',
   });
+  readProgForm();
 }
 
 /* ---------- Events ---------- */
@@ -4331,6 +4373,7 @@ document.addEventListener('input', e => {
   else if (t.dataset.exnote) { const ex = exById(t.dataset.exnote); if (ex) { ex.note = t.value.trim(); save(); } }
   else if (t.id === 'fr_n') updateRecipePreview();
   else if (t.id === 'rq') { RE_EXTRA = []; renderRecipeSearch(); }
+  else if (['s_pmin', 's_pmax', 's_pup'].includes(t.id)) { const p = { min: Math.round(num($('#s_pmin').value) || 1), max: Math.round(num($('#s_pmax').value) || 1), up: Math.round(num($('#s_pup').value) || 1) }; if (p.min <= p.up && p.up <= p.max && p.max <= 50) $('#s_pex').innerHTML = progExample(p); }
   else if (t.id === 'lq') renderLib();
   else if (t.dataset.rig) { RE.items[+t.dataset.rig].g = num(t.value) || 0; reTotals(); }
   else if (t.id === 're_por') reTotals();
@@ -4357,6 +4400,7 @@ document.addEventListener('change', e => {
   if (e.target.id === 'gl_ex') glHint();
   if (e.target.id === 'ek_auto') { S.settings.autoKcal = e.target.checked; save(); render(); if (e.target.checked) { S.meta.autoKcalWeek = null; autoKcalCheck(); } }
   if (e.target.id === 'photoFile' && e.target.files.length) { addPhotos([...e.target.files]); e.target.value = ''; }
+  if (e.target.id === 'e_own') $('#e_range')?.classList.toggle('hidden', !e.target.checked);
   if (e.target.id === 'labelFile' && e.target.files[0]) { ocrScan(e.target.files[0]); e.target.value = ''; }
   if (e.target.id === 'cmp_a' || e.target.id === 'cmp_b') compareSheet($('#cmp_a').value, $('#cmp_b').value);
   if (e.target.id === 'importFile' && e.target.files[0]) {

@@ -77,11 +77,11 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - Ein aktiver Plan: Die App schlägt automatisch den nächsten Tag vor, bei festen Wochentagen den heutigen
 - Eigene Übungen mit Haupt- und Hilfsmuskeln
 - Sätze mit Gewicht und Wiederholungen loggen, die Werte vom letzten Mal stehen daneben
-- **Automatische Progression (Double Progression):**
-  - Jede Übung hat einen Wdh-Bereich (z.B. 6–10) und eine Steigerung (z.B. +2,5 kg)
-  - Schaffst du in *allen* Sätzen das obere Ende → **automatisch hochgestuft** aufs nächste Gewicht
-  - Sonst: Gewicht halten, pro Satz +1 Wdh anpeilen (mit Fortschrittsanzeige bis zum Level-up)
-  - 2× in Folge unter dem unteren Ende → Deload −10 %
+- **Automatische Progression, es geht immer vorwärts (kein Deload):**
+  - In den Einstellungen (Mehr → Progression) legst du den Wdh-Bereich fest (z.B. 8–12) und ab wie vielen Wdh. das Gewicht steigt (z.B. 12). Einzelne Übungen können optional einen eigenen Bereich haben.
+  - Schaffst du in *allen* Sätzen die Steiger-Wdh. → nächstes Mal **+Steigerung** (z.B. +2,5 kg), Wdh. wieder ab dem Bereichsanfang
+  - Sonst: gleiches Gewicht, **+1 Wdh. pro Satz**
+  - Bei jeder Übung steht **„Letztes Mal → Heute“** mit der Vorgabe, z.B. `60 kg · 3×12 → 62,5 kg · 3×8`. Die Vorgabe steht auch im Gym-Modus und nach dem Training unter „Nächstes Mal“.
 - Pausentimer mit Ton und Vibration, Scheibenrechner für die Langhantel
 - Bestleistungen (PRs), geschätztes 1RM pro Übung mit Diagramm, Wochen-Streak
 
