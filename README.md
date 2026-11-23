@@ -89,6 +89,14 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 
 **💾 Backup:** Export/Import als JSON-Datei unter *Mehr*.
 
+### Health (eigener Tab)
+- **Recovery:** Score von 0 bis 100 aus Schlaf (Dauer und Qualität), Trainingsbelastung der letzten 48 h und einem 10-Sekunden-**Tages-Check** (Energie, Muskelkater, Stress). Dazu gibt es Vorschläge: kurze Nacht, Muskeln noch in Erholung (mit Warnung, wenn das heutige Training sie trifft), Muskelkater, Stress, zu wenig Protein, Kalorien oder Wasser am Vortag, plus eine passende Mobility-Routine.
+- **Muskel-Erholung:** Das Körpermodell färbt jeden Muskel nach Erholung (erholt sich, fast erholt, erholt). Je nach Satzzahl braucht ein Muskel 24–72 h, die App zeigt die verbleibenden Stunden.
+- **Ernährungs-Bewertung pro Tag:** Note A–E (0–100 Punkte) aus Kalorien, Protein, Obst & Gemüse (Ziel 400 g, auch aus Rezepten über deren Zutaten berechnet), Anteil Süßes & Alkohol und Wasser. Dazu konkrete Tipps, Kalorien nach Kategorie, Top-Kalorien- und Top-Proteinquellen und eine Wochenleiste mit den Noten.
+- **Schlaf:** Einschlaf- und Aufwachzeit sowie Qualität eintragen. Die App zeigt Ø 7 Nächte, Schlafdefizit, Regelmäßigkeit der Einschlafzeit, ein 14-Nächte-Diagramm und Tipps. Das Schlafziel ist einstellbar. Morgens erinnert die Startseite ans Eintragen.
+- **Mobility (Dehnen & Physio):** 37 Übungen mit Anleitung (Nacken, Schultern, Rücken, Hüfte, Beine, Knie, Atmung) und 9 Routinen, z. B. Morgen-Mobility, Büro-Reset, Hüfte öffnen, Schulter-Gesundheit, Unterer Rücken, Knie-Stabilität, Cool-downs und Abend-Entspannung. Ein geführter Timer mit Seitenwechsel, Pause und Vibration läuft durch die Routine, der Bildschirm bleibt dabei an. Erledigte Einheiten werden gezählt.
+- Alle Hinweise sind allgemein und keine medizinische Beratung.
+
 ## Auf dem Handy nutzen
 
 Die App ist eine statische Webseite und braucht keinen Build-Schritt. Am einfachsten über **GitHub Pages**:
@@ -108,6 +116,9 @@ Lokal testen: `python3 -m http.server` im Ordner starten und `http://localhost:8
 |---|---|
 | `index.html` | App-Gerüst und Navigation |
 | `app.js` | gesamte Logik (Ernährung, Gewicht, Training, Progression) |
+| `health.js` | Health-Tab: Recovery, Ernährungs-Bewertung, Schlaf, Mobility |
+| `foods.js` | Lebensmittel-Datenbank (offline) |
+| `vendor/ocr/` | Texterkennung für Nährwerttabellen (offline) |
 | `styles.css` | Design (Dark Mode) |
 | `sw.js` | Service Worker für den Offline-Betrieb |
 | `manifest.webmanifest`, `icons/` | App-Installation und Icons |

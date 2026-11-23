@@ -1,8 +1,8 @@
-const CACHE = 'gymtracker-v20';
-const ASSETS = ['./', './index.html', './styles.css', './foods.js', './app.js', './manifest.webmanifest',
+const CACHE = 'gymtracker-v21';
+const ASSETS = ['./', './index.html', './styles.css', './foods.js', './app.js', './health.js', './manifest.webmanifest',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 // Diese Dateien werden auf neue Versionen geprüft
-const CORE = ['./', './index.html', './styles.css', './foods.js', './app.js', './manifest.webmanifest'];
+const CORE = ['./', './index.html', './styles.css', './foods.js', './app.js', './health.js', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));

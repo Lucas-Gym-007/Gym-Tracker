@@ -243,8 +243,10 @@ const DEFAULTS = () => ({
     kcal: 2200, protein: 150, carbs: 220, fat: 70, water: 2500, weeklyWorkouts: 3,
     weighDay: 1, weighTime: '08:00', bar: 20, vol: {}, focus: [],
     prog: { min: 8, max: 12, up: 12 }, // Wdh-Bereich & Steiger-Schwelle für alle Übungen
+    sleepGoal: 8,
   },
   foods: [], favFoods: [], water: {}, weights: [], measures: [], prs: [],
+  sleep: [], dayCheck: {}, mobility: [], // Health: Schlaf, Tages-Check, Mobility-Einheiten
   cardio: [], mealTemplates: [], recipes: [], goals: [],
   habits: [], habitLog: {}, shopping: [], prep: [], checkins: [], tdeeHist: [], customFoods: [], weekPlan: null,
   exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
@@ -797,15 +799,16 @@ function bodyMuscles(P, view) {
   return out;
 }
 // Ganze Figur als SVG. vol = Wochenvolumen (Färbung) oder null (neutrale Vorschau)
-function bodySVG(P, view, vol, { interactive = true, W = P.W } = {}) {
+function bodySVG(P, view, vol, { interactive = true, W = P.W, colorOf = null } = {}) {
   const ms = bodyMuscles(P, view).map(({ m, d }) => {
     let fill = 'var(--muscle)', op = 1;
-    if (vol) {
+    if (colorOf) ({ fill, op = 1 } = colorOf(m));
+    else if (vol) {
       const v = vol[m] || 0, tg = effTarget(m), st = volStatus(v, tg);
       fill = { none: 'var(--muscle)', low: 'var(--low)', ok: 'var(--ok)', high: 'var(--high)' }[st];
       if (st === 'low') op = (0.45 + 0.55 * v / tg[0]).toFixed(2);
     }
-    const foc = vol && isFocus(m);
+    const foc = vol && !colorOf && isFocus(m);
     return `<path d="${d}" ${interactive ? `data-act="openMuscle" data-m="${m}"` : ''} fill="${fill}" fill-opacity="${op}" stroke="${foc ? 'var(--text)' : 'var(--bg)'}" stroke-width="${foc ? 1.8 : P.sep.toFixed(2)}" stroke-linejoin="round"/>`;
   }).join('');
   const spine = view === 'back' ? `<path d="M100 126V204" stroke="var(--bg)" stroke-width="${P.sep.toFixed(2)}" opacity=".8"/>` : '';
@@ -2717,6 +2720,7 @@ VIEWS.today = () => {
   ${S.active ? `<div class="notice" data-act="tab" data-tab="train">${ic('activity')}<div class="t">${esc(S.active.name)}<span>Training läuft · <span data-elapsed style="display:inline">${mmss((Date.now() - S.active.start) / 1000)}</span></span></div>${ic('chev', 'chev')}</div>` : ''}
   ${wpTodayNotice()}
   ${planHomeCard()}
+  ${healthHomeNotice()}
   ${(() => { const R = remainingFor(today()); return new Date().getHours() >= 12 && R.kcal > 200 && S.foods.some(f => f.date === today() && !f.planned) ? `<div class="notice" data-act="fitSheet">${ic('sparkle')}<div class="t">Noch ${fmt(R.kcal)} kcal${R.p > 10 ? ` & ${fmt(R.p)} g Protein` : ''} offen<span>Vorschläge, was jetzt passt</span></div>${ic('chev', 'chev')}</div>` : ''; })()}
   ${ciDue ? `<div class="notice" data-act="checkin">${ic('check')}<div class="t">Wöchentlicher Check-in<span>Gewicht, Energie, Schlaf & Co. · 1 Minute</span></div>${ic('chev', 'chev')}</div>` : ''}
   ${due && !ciDue ? `<div class="notice warn" data-act="addWeight">${ic('scale')}<div class="t">Zeit zum Wiegen<span>${S.weights.length ? `Wöchentlicher Check-in · ${DAYS[st.weighDay]}` : 'Startgewicht eintragen'}</span></div>${ic('chev', 'chev')}</div>` : ''}
@@ -4458,13 +4462,16 @@ function applyUpdate() {
   location.reload();
 }
 
-/* ---------- Start ---------- */
-applyAccent();
-applyMeals();
-render();
-checkWeighReminder();
-loadPhotos();
-recordTdee();
-autoKcalCheck();
-setupUpdates();
-navigator.storage?.persist?.();
+/* ---------- Start (nachdem alle Skripte geladen sind) ---------- */
+function startApp() {
+  applyAccent();
+  applyMeals();
+  render();
+  checkWeighReminder();
+  loadPhotos();
+  recordTdee();
+  autoKcalCheck();
+  setupUpdates();
+  navigator.storage?.persist?.();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startApp); else startApp();
