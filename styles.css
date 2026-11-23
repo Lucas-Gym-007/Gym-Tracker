@@ -562,3 +562,12 @@ body.food-tab .view { padding-bottom: 96px; }
 .plan-home .list { margin-top: 4px; }
 .plan-home .item { padding: 11px 14px; }
 .plan-open .nw { white-space: nowrap; }
+
+/* Nährwerttabelle scannen */
+.ocr-box { border: 1px dashed var(--line); border-radius: 18px; padding: 14px; margin-bottom: 16px; display: grid; gap: 10px; }
+.ocr-box .btn svg { width: 18px; height: 18px; vertical-align: -3px; margin-right: 4px; }
+.ocr-box .link { font-size: 13px; color: var(--accent); justify-self: start; }
+#cf_ocr { line-height: 1.5; }
+#cf_ocr textarea { width: 100%; font: inherit; font-size: 14px; color: var(--text); background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; resize: vertical; }
+.ocr-hit { animation: ocrHit 1.6s ease; border-color: var(--accent) !important; }
+@keyframes ocrHit { 0% { box-shadow: 0 0 0 4px var(--glow); } 100% { box-shadow: 0 0 0 0 transparent; } }

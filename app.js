@@ -2184,6 +2184,11 @@ function customFoodSheet(id, pre, back) {
   const x = (S.customFoods || []).find(f => f.id === id) || pre || {};
   CF = { id: id || null, back: back || null };
   openSheet(`<h2>${id ? 'Lebensmittel bearbeiten' : 'Eigenes Lebensmittel'}</h2>
+    <div class="ocr-box">
+      <button class="btn primary block" data-act="ocrPick">${ic('camera')} Nährwerttabelle scannen</button>
+      <div class="small muted" id="cf_ocr">Foto von der Tabelle machen – die Werte werden direkt auf dem Handy ausgelesen, es wird nichts hochgeladen.</div>
+      <button class="link small" data-act="ocrPaste">Oder Text der Tabelle einfügen</button>
+    </div>
     <label class="f"><span>Name</span><input id="cf_name" value="${esc(x.name || '')}" placeholder="z.B. Mein Proteinbrot (Bäcker XY)"></label>
     <label class="f"><span>Barcode (optional)</span><input id="cf_code" inputmode="numeric" value="${esc(x.barcode || '')}" placeholder="EAN vom Etikett – dann erkennt der Scanner es wieder"></label>
     <label class="f"><span>Kategorie</span><select id="cf_cat">${['Eigene', ...Object.keys(FOOD_CATS)].map(c => `<option ${c === (x.cat && x.cat !== 'Online' ? x.cat : 'Eigene') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
@@ -3301,7 +3306,8 @@ function renderFoodBody() {
       ${can ? '<button class="btn primary block" data-act="scanStart">Kamera-Scanner starten</button><video id="scanVideo" class="scan hidden" playsinline muted></video><div class="hr"></div>' : ''}
       <label class="f"><span>Barcode-Nummer (EAN)</span><input id="fb_code" inputmode="numeric" placeholder="z.B. 4008400404127"></label>
       <button class="btn block" data-act="barcodeLookup">Produkt suchen</button>
-      ${can ? '' : '<p class="small muted">Kamera-Scan wird von diesem Browser nicht unterstützt – Nummer einfach abtippen.</p>'}
+      ${can ? '' : '<p class="small muted">Barcode-Kamera wird von diesem Browser nicht unterstützt – Nummer einfach abtippen.</p>'}
+      <button class="btn block ghost" style="margin-top:8px" data-act="cfScanNew">${ic('camera')} Ohne Barcode: Nährwerttabelle scannen</button>
       <div id="fbres" class="small muted" style="margin-top:8px"></div>`;
   }
 }
@@ -3356,8 +3362,128 @@ function barcodeLookup(code) {
   if (hit) { FC.picked = { ...hit, own: true }; return renderFoodBody(); }
   const out = $('#fbres');
   if (out) out.innerHTML = `<div class="card" style="margin-top:4px"><b>Neues Produkt</b><div class="small muted" style="margin-top:4px">Barcode ${code} ist noch nicht in deiner Bibliothek. Leg es einmal mit den Werten vom Etikett an – beim nächsten Scan ist es sofort da.</div>
-    <button class="btn primary block" style="margin-top:12px" data-act="cfFromCode" data-code="${code}">Produkt anlegen</button></div>`;
+    <button class="btn primary block" style="margin-top:12px" data-act="cfFromCodeScan" data-code="${code}">${ic('camera')} Nährwerttabelle scannen</button>
+    <button class="btn block ghost" style="margin-top:8px" data-act="cfFromCode" data-code="${code}">Werte selbst eintippen</button></div>`;
 }
+/* ---- Nährwerttabelle scannen: Texterkennung offline auf dem Gerät (tesseract.js in vendor/ocr) ---- */
+let OCR_LIB = null;
+const ocrUrl = p => new URL('vendor/ocr/' + p, location.href).href;
+function ocrLoadLib() {
+  if (window.Tesseract) return Promise.resolve();
+  return OCR_LIB ||= new Promise((ok, fail) => {
+    const s = document.createElement('script'); s.src = ocrUrl('tesseract.min.js');
+    s.onload = ok; s.onerror = () => { OCR_LIB = null; fail(new Error('OCR nicht geladen')); };
+    document.head.appendChild(s);
+  });
+}
+async function ocrPrep(file) { // verkleinern, Graustufen, Kontrast strecken
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0, c.width, c.height); bmp.close?.();
+  const im = g.getImageData(0, 0, c.width, c.height), d = im.data, hist = new Uint32Array(256), n = d.length / 4;
+  for (let i = 0; i < d.length; i += 4) { const y = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0; d[i] = y; hist[y]++; }
+  let lo = 0, hi = 255, acc = 0; while (lo < 255 && (acc += hist[lo]) < n * 0.01) lo++; acc = 0; while (hi > 0 && (acc += hist[hi]) < n * 0.01) hi--;
+  const span = Math.max(1, hi - lo);
+  for (let i = 0; i < d.length; i += 4) { const v = Math.max(0, Math.min(255, (d[i] - lo) * 255 / span)); d[i] = d[i + 1] = d[i + 2] = v; }
+  g.putImageData(im, 0, 0);
+  return c;
+}
+const ocrSay = h => { const el = $('#cf_ocr'); if (el) el.innerHTML = h; };
+async function ocrScan(file) {
+  ocrSay('Bereite Foto vor …');
+  let w = null;
+  try {
+    const [img] = await Promise.all([ocrPrep(file), ocrLoadLib()]);
+    ocrSay('Texterkennung startet … <span class="muted">(beim ersten Mal wird sie geladen)</span>');
+    w = await Tesseract.createWorker('deu', 1, {
+      workerPath: ocrUrl('worker.min.js'), corePath: ocrUrl('core'), langPath: ocrUrl('lang'),
+      logger: m => { if (m.status === 'recognizing text') ocrSay(`Lese Tabelle … ${Math.round(m.progress * 100)} %`); },
+    });
+    await w.setParameters({ tessedit_pageseg_mode: String(window.OCR_PSM || 6), preserve_interword_spaces: '1' });
+    const { data } = await w.recognize(img);
+    window.OCR_LAST = data.text;
+    ocrApply(data.text);
+  } catch (e) {
+    ocrSay('⚠ Das hat nicht geklappt. Probier ein schärferes, gerades Foto – oder füge den Text ein.');
+  } finally { w?.terminate(); }
+}
+// Liest kcal, Fett, Kohlenhydrate und Eiweiß (pro 100 g = erste Spalte) aus dem Text einer Nährwerttabelle
+function parseLabel(raw) {
+  const low = s => s.toLowerCase().replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss');
+  const lines = String(raw || '').replace(/\r/g, '').split('\n').map(l => low(l).replace(/[|©®"'`*_]/g, ' ').replace(/(\d)\s*[,.]\s*(\d)/g, '$1,$2').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const all = lines.join('\n');
+  const toN = s => parseFloat(String(s).replace(',', '.'));
+  // Zahlen-Token einer Zeile; „g“ wird von der Texterkennung oft als „9“ gelesen → mehrere Lesarten
+  const tokens = s => [...s.replace(/(^|\s)o(?=,\d)/g, '$10').matchAll(/(\d{1,4}(?:,\d{1,3})?)(\s*g\b)?/g)].map(m => ({ t: m[1], g: !!m[2] }));
+  const reads = tok => {
+    const t = tok.t, alt = [];
+    if (/,\d9$/.test(t)) alt.push(toN(t.slice(0, -1)));                                      // 7,09 → 7,0
+    else if (!t.includes(',') && /.9$/.test(t)) { const s = t.slice(0, -1); alt.push(toN(s)); if (s.length >= 2) alt.push(toN(s.slice(0, -1) + ',' + s.slice(-1))); } // 459 → 45 / 4,5
+    const out = tok.g ? [toN(t), ...alt] : [...alt, toN(t)];                                  // mit „g“ zuerst wörtlich (179g → 17 als Ausweichlesart)
+    return [...new Set(out)].filter(x => x <= 100);
+  };
+  const find = (re, not) => { // erste Zahl hinter dem Begriff = Spalte „pro 100 g“
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i], m = l.match(re); if (!m || (not && not.test(l))) continue;
+      let tk = tokens(l.slice(m.index + m[0].length))[0];
+      if (!tk && lines[i + 1] && /^<?\s*\d/.test(lines[i + 1])) tk = tokens(lines[i + 1])[0];
+      const rs = tk ? reads(tk) : [];
+      if (rs.length) return rs;
+    }
+    return null;
+  };
+  // Energie: „362 kcal“; sonst kJ/kcal-Paar im Brennwert-Zeile; sonst kJ ÷ 4,184
+  let kcal = null, m = all.match(/(\d{1,4}(?:,\d)?)\s*k\s?c\s?a\s?l/);
+  if (m) kcal = toN(m[1]);
+  if (kcal == null) for (const l of lines) {
+    if (!/brennwert|energie|energy|kcal|kj/.test(l)) continue;
+    const ns = (l.match(/\d{1,4}(?:,\d)?/g) || []).map(toN);
+    for (let i = 0; i + 1 < ns.length && kcal == null; i++) if (ns[i] / ns[i + 1] > 4.0 && ns[i] / ns[i + 1] < 4.35) kcal = ns[i + 1];
+    if (kcal != null) break;
+    const kj = l.match(/(\d{2,4})\s*kj/); if (kj) { kcal = Math.round(toN(kj[1]) / 4.184); break; }
+  }
+  if (kcal != null && kcal > 950) kcal = null;
+  const NOT = /^[-–\s]*(davon|of which|dont)/;
+  const F = find(/(^|\s)(fett|fat|lipides?)\b/, NOT);
+  const C = find(/kohlen\s?hydrat|carbo\s?hydrat|glucides/, NOT);
+  const Pr = find(/(^|\s)(e[il1]?we[il1][sb8]|protein)/);
+  // beste Kombination der Lesarten: passt am besten zu den Kalorien (4/4/9), sonst die wahrscheinlichste Lesart
+  let best = null;
+  for (const [fi, f] of (F || [null]).entries()) for (const [ci, c] of (C || [null]).entries()) for (const [pi, p] of (Pr || [null]).entries()) {
+    let sc = 0.02 * (fi + ci + pi);
+    if ((f || 0) + (c || 0) + (p || 0) > 100) sc += 10;
+    if (kcal != null && f != null && c != null && p != null) sc += Math.abs(kcal - (4 * p + 4 * c + 9 * f)) / Math.max(kcal, 50);
+    if (!best || sc < best.sc) best = { sc, f, c, p };
+  }
+  const r = { kcal, f: best.f, c: best.c, p: best.p };
+  r.n = ['kcal', 'f', 'c', 'p'].filter(k => r[k] != null).length;
+  if (r.kcal == null && r.f != null && r.c != null && r.p != null) { r.kcal = Math.round(4 * r.p + 4 * r.c + 9 * r.f); r.est = true; }
+  const pm = all.match(/(portion|serving|riegel|stuck|flasche|becher|scheibe|packung|dose|glas|beutel)\s*[(=:]?\s*(?:a\s)?(\d{1,4}(?:,\d)?)\s*(g|9|ml)\b/);
+  if (pm && toN(pm[2]) > 0 && toN(pm[2]) <= 2000) { const w = { serving: 'portion', stuck: 'Stück' }[pm[1]] || pm[1]; r.portion = { l: '1 ' + w[0].toUpperCase() + w.slice(1), g: toN(pm[2]) }; }
+  return r;
+}
+function ocrApply(text) {
+  const r = parseLabel(text);
+  if (!r.n) return ocrSay('⚠ Keine Nährwerte erkannt. Fotografiere die Tabelle gerade und formatfüllend – oder füge den Text ein.');
+  CF.basis = '100'; $$('#cf_basis button').forEach(b => b.classList.toggle('on', b.dataset.b === '100'));
+  const dec = v => String(Math.round(v * 10) / 10).replace('.', ',');
+  for (const [k, id] of [['kcal', 'cf_kcal'], ['p', 'cf_p'], ['c', 'cf_c'], ['f', 'cf_f']]) {
+    const el = $('#' + id); if (!el || r[k] == null) continue;
+    el.value = dec(r[k]); el.classList.remove('ocr-hit'); void el.offsetWidth; el.classList.add('ocr-hit');
+  }
+  if (r.portion && $('#cf_pg') && ['', '100'].includes($('#cf_pg').value.trim()) && ['', '1 Portion'].includes($('#cf_pl').value.trim())) {
+    $('#cf_pg').value = String(r.portion.g).replace('.', ','); $('#cf_pl').value = r.portion.l;
+    for (const id of ['cf_pg', 'cf_pl']) { const el = $('#' + id); el.classList.remove('ocr-hit'); void el.offsetWidth; el.classList.add('ocr-hit'); }
+  }
+  const at = r.p != null && r.c != null && r.f != null ? 4 * r.p + 4 * r.c + 9 * r.f : null;
+  const ok = at != null && r.kcal != null && !r.est && Math.abs(r.kcal - at) <= Math.max(20, r.kcal * 0.12);
+  const miss = [['kcal', 'Kalorien'], ['f', 'Fett'], ['c', 'Kohlenhydrate'], ['p', 'Eiweiß']].filter(([k]) => r[k] == null).map(([, l]) => l);
+  ocrSay(`<b style="color:var(--text)">Erkannt pro 100 g:</b> ${r.kcal != null ? fmt(r.kcal) + ' kcal' : '–'} · F ${r.f != null ? dec(r.f) : '–'} · KH ${r.c != null ? dec(r.c) : '–'} · E ${r.p != null ? dec(r.p) : '–'}${r.portion ? ` · Portion ${esc(r.portion.l)} = ${dec(r.portion.g)} g` : ''}<br>
+    ${ok ? '<span style="color:var(--ok)">✓ Werte passen zusammen</span> – kurz prüfen, Name eintragen, fertig.' : miss.length ? `⚠ Nicht erkannt: ${miss.join(', ')} – bitte ergänzen.` : r.est ? '⚠ Kalorien aus den Makros berechnet – bitte prüfen.' : '⚠ Werte passen nicht ganz zusammen – bitte mit dem Etikett vergleichen.'}`);
+  if (!$('#cf_name')?.value) $('#cf_name')?.focus({ preventScroll: true });
+}
+
 let scan = null;
 async function scanStart() {
   const v = $('#scanVideo'); if (!v) return;
@@ -3641,6 +3767,11 @@ const A = {
   cfBasis: el => { CF.basis = el.dataset.b; $$('#cf_basis button').forEach(b => b.classList.toggle('on', b.dataset.b === CF.basis)); },
   cfBack: () => { const meal = FC?.meal, date = FC?.date; foodSheet(meal); if (date) FC.date = date; },
   cfFromCode: el => customFoodSheet(null, { barcode: el.dataset.code }, 'food'),
+  cfFromCodeScan: el => { customFoodSheet(null, { barcode: el.dataset.code }, 'food'); $('#labelFile').click(); },
+  cfScanNew: () => { stopScan(); customFoodSheet(null, null, 'food'); $('#labelFile').click(); },
+  ocrPick: () => $('#labelFile').click(),
+  ocrPaste: () => { ocrSay(`<textarea id="cf_ocrtxt" rows="6" placeholder="Text der Nährwerttabelle hier einfügen.&#10;iPhone: Foto in der Fotos-App öffnen, Text gedrückt halten → Alle auswählen → Kopieren."></textarea><button class="btn sm" style="margin-top:8px" data-act="ocrParse">Werte übernehmen</button>`); $('#cf_ocrtxt')?.focus(); },
+  ocrParse: () => ocrApply($('#cf_ocrtxt')?.value || ''),
   cfFromName: () => customFoodSheet(null, { name: ($('#fq')?.value || '').trim() }, 'food'),
   saveCustomFood: () => {
     const name = $('#cf_name').value.trim(); if (!name) return toast('Name eingeben');
@@ -4256,6 +4387,7 @@ document.addEventListener('change', e => {
   if (e.target.id === 'gl_ex') glHint();
   if (e.target.id === 'ek_auto') { S.settings.autoKcal = e.target.checked; save(); render(); if (e.target.checked) { S.meta.autoKcalWeek = null; autoKcalCheck(); } }
   if (e.target.id === 'photoFile' && e.target.files.length) { addPhotos([...e.target.files]); e.target.value = ''; }
+  if (e.target.id === 'labelFile' && e.target.files[0]) { ocrScan(e.target.files[0]); e.target.value = ''; }
   if (e.target.id === 'cmp_a' || e.target.id === 'cmp_b') compareSheet($('#cmp_a').value, $('#cmp_b').value);
   if (e.target.id === 'importFile' && e.target.files[0]) {
     e.target.files[0].text().then(txt => {
