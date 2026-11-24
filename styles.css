@@ -650,3 +650,18 @@ body.food-tab .view { padding-bottom: 96px; }
 /* Rechtliches in der App, Willkommen */
 .legal-frame { width: 100%; height: min(68vh, 640px); border: 0; border-radius: 16px; background: #0a0a0b; display: block; }
 .welcome b { font-size: 16px; }
+
+/* Progressions-Diagramme */
+.prg-chips { gap: 5px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-top: 8px; }
+.prg-chips::-webkit-scrollbar { display: none; }
+.prg-chips .chip { padding: 5px 11px; font-size: 12px; white-space: nowrap; flex: none; }
+.card-head .prg-chips { margin-top: 0; }
+.prg-big { display: flex; align-items: baseline; gap: 10px; margin: 10px 0 8px; flex-wrap: wrap; }
+.prg-big b { font-size: 34px; font-weight: 300; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.prg-big b.up { color: var(--ok); } .prg-big b.down { color: var(--red); }
+.prg-big span { color: var(--muted); font-size: 12.5px; }
+.stat b.up { color: var(--ok); } .stat b.down { color: var(--red); }
+.prg-spark { width: 90px; height: 30px; flex: none; }
+.prg-spark .spark { width: 90px; height: 30px; display: block; }
+.prg-list .item { gap: 10px; }
+.prg-list .pill { min-width: 62px; text-align: center; }

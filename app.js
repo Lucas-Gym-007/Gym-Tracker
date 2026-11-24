@@ -260,7 +260,7 @@ const DEFAULTS = () => ({
 /* ---------- State ---------- */
 const KEY = 'gymtracker.v1';
 let S = load();
-const UI = { tab: 'today', prog: 'body', foodDate: today(), bodyRange: 90, volWeek: 0, rest: null, statsMode: 'week', statsOff: 0, statsFrom: 'today' };
+const UI = { prgRange: '3m', exMetric: 'e1rm', tab: 'today', prog: 'body', foodDate: today(), bodyRange: 90, volWeek: 0, rest: null, statsMode: 'week', statsOff: 0, statsFrom: 'today' };
 
 function load() {
   const d = DEFAULTS();
@@ -339,7 +339,8 @@ function bar(label, val, goal, color, unit = 'g') {
 }
 
 /* Kleines SVG-Liniendiagramm. series: [{pts:[[ms,y]], color, dash, dots}] */
-function lineChart(series, { h = 150, goal = null, unit = '' } = {}) {
+let CHART_ID = 0;
+function lineChart(series, { h = 150, goal = null, unit = '', fy = null } = {}) {
   const all = series.flatMap(s => s.pts);
   if (all.length < 2) return '<div class="empty small">Noch zu wenig Daten für ein Diagramm – trag mindestens 2 Werte ein.</div>';
   const W = 340, H = h, pl = 36, pr = 10, pt = 10, pb = 20;
@@ -353,7 +354,7 @@ function lineChart(series, { h = 150, goal = null, unit = '' } = {}) {
   let g = '';
   for (let i = 0; i <= 2; i++) {
     const v = y0 + (y1 - y0) * i / 2;
-    g += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${sy(v)}" y2="${sy(v)}"/><text x="${pl - 5}" y="${sy(v) + 3}" text-anchor="end">${fmt(v, Math.abs(y1 - y0) < 10 ? 1 : 0)}</text>`;
+    g += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${sy(v)}" y2="${sy(v)}"/><text x="${pl - 5}" y="${sy(v) + 3}" text-anchor="end">${fy ? fy(v) : fmt(v, Math.abs(y1 - y0) < 10 ? 1 : 0)}</text>`;
   }
   if (goal != null) g += `<line x1="${pl}" x2="${W - pr}" y1="${sy(goal)}" y2="${sy(goal)}" stroke="var(--accent)" stroke-dasharray="4 4" opacity=".7"/><text x="${W - pr}" y="${sy(goal) - 4}" text-anchor="end" style="fill:var(--accent)">Ziel ${fmt(goal, 1)}${unit}</text>`;
   const dl = ms => new Date(ms).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
@@ -361,20 +362,23 @@ function lineChart(series, { h = 150, goal = null, unit = '' } = {}) {
   for (const s of series) {
     if (!s.pts.length) continue;
     const d = s.pts.map((p, i) => (i ? 'L' : 'M') + sx(p[0]).toFixed(1) + ' ' + sy(p[1]).toFixed(1)).join('');
+    if (s.area) { const gid = 'lg' + (++CHART_ID), base = (H - pb).toFixed(1); g += `<defs><linearGradient id="${gid}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${s.color}" stop-opacity=".26"/><stop offset="1" stop-color="${s.color}" stop-opacity="0"/></linearGradient></defs><path d="${d}L${sx(s.pts.at(-1)[0]).toFixed(1)} ${base}L${sx(s.pts[0][0]).toFixed(1)} ${base}Z" fill="url(#${gid})"/>`; }
+    if (s.zero != null && s.zero > y0 && s.zero < y1) g += `<line x1="${pl}" x2="${W - pr}" y1="${sy(s.zero)}" y2="${sy(s.zero)}" stroke="rgba(255,255,255,.18)" stroke-dasharray="3 4"/>`;
     g += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2.2}" ${s.dash ? 'stroke-dasharray="5 4"' : ''} stroke-linejoin="round" stroke-linecap="round"/>`;
     if (s.dots) g += s.pts.map(p => `<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="3" fill="${s.color}"/>`).join('');
+    if (s.marks) g += s.marks.map(p => `<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="5" fill="var(--bg)" stroke="var(--accent-hi)" stroke-width="2.2"/>`).join('');
   }
   return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
 }
-function barChart(vals, labels, { h = 110, goal = null, color = 'var(--accent)', under = null } = {}) {
-  const W = 340, H = h, pb = 18, pt = 8, max = Math.max(1, goal || 0, ...vals);
+function barChart(vals, labels, { h = 110, goal = null, color = 'var(--accent)', under = null, fv = v => v } = {}) {
+  const W = 340, H = h, pb = 18, pt = 16, max = Math.max(1, goal || 0, ...vals);
   const bw = (W - 10) / vals.length;
   let g = '';
   vals.forEach((v, i) => {
     const bh = (H - pb - pt) * v / max, x = 5 + i * bw + bw * 0.18;
     g += `<rect x="${x}" y="${H - pb - bh}" width="${bw * 0.64}" height="${Math.max(bh, 2)}" rx="4" fill="${goal && v >= goal ? color : v && under ? under : 'var(--card2)'}" ${goal && v >= goal || (v && under) ? '' : 'stroke="var(--line)"'}/>`;
     g += `<text x="${x + bw * 0.32}" y="${H - 5}" text-anchor="middle">${labels[i]}</text>`;
-    if (v) g += `<text x="${x + bw * 0.32}" y="${H - pb - bh - 3}" text-anchor="middle" style="fill:var(--text)">${v}</text>`;
+    if (v) g += `<text x="${x + bw * 0.32}" y="${H - pb - bh - 3}" text-anchor="middle" style="fill:var(--text)">${fv(v)}</text>`;
   });
   if (goal) { const y = H - pb - (H - pb - pt) * goal / max; g += `<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="var(--accent)" stroke-dasharray="4 4" opacity=".5"/>`; }
   return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
@@ -524,6 +528,93 @@ function progBox(s, compact) {
     <div class="pcol"><span class="label">Heute</span><b>${kg(s.w)} · ${repsTxt(s.reps)}</b></div>
     <span class="pbadge">${s.status === 'up' ? '⬆ ' : ''}${s.badge}</span></div>`;
 }
+/* ---------- Progressions-Diagramme ---------- */
+const PRG_RANGES = [['1m', '4 W', 28], ['3m', '3 M', 91], ['6m', '6 M', 182], ['all', 'Alles', null]];
+const PRG_METRICS = [['e1rm', 'Geschätztes 1RM', 'kg'], ['top', 'Top-Gewicht', 'kg'], ['vol', 'Volumen', 'kg'], ['reps', 'Wiederholungen', 'Wdh']];
+const isBW = ex => !ex.start && !ex.barbell && !exHistory(ex.id).some(x => x.sets.some(s => s.w > 0));
+const prgFrom = () => { const d = PRG_RANGES.find(r => r[0] === UI.prgRange)?.[2]; return d ? Date.now() - d * 864e5 : 0; };
+function sessVal(x, m) {
+  const s = x.sets;
+  if (m === 'top') return Math.max(...s.map(z => z.w || 0));
+  if (m === 'vol') return s.reduce((a, z) => a + (z.w || 0) * z.r, 0);
+  if (m === 'reps') return s.reduce((a, z) => a + z.r, 0);
+  return Math.max(...s.map(z => (z.w ? e1rm(z.w, z.r) : 0))); // e1rm
+}
+// Punkte einer Übung im Zeitraum (ältester zuerst) + Rekordpunkte
+function exPoints(exId, m, from = prgFrom()) {
+  const all = exHistory(exId).slice().reverse().map(x => [x.start, Math.round(sessVal(x, m) * 10) / 10]).filter(p => p[1] > 0);
+  let best = -Infinity; const marks = [];
+  for (const p of all) { if (p[1] > best) { if (best > -Infinity && p[0] >= from) marks.push(p); best = p[1]; } }
+  const pts = all.filter(p => p[0] >= from);
+  const before = all.filter(p => p[0] < from).at(-1); // Ausgangswert vor dem Zeitraum
+  return { pts, marks, base: before ? before[1] : pts[0]?.[1], all };
+}
+function chg(base, last) { if (!base || last == null) return null; return { abs: last - base, pct: (last / base - 1) * 100 }; }
+const pctTxt = p => (p == null ? '–' : `${p > 0 ? '+' : p < 0 ? '−' : '±'}${fmt(Math.abs(p), Math.abs(p) < 10 ? 1 : 0)} %`);
+const pctCls = p => (p == null ? '' : p > 0.5 ? 'up' : p < -0.5 ? 'down' : '');
+const rangeChips = (act, extra = '') => `<div class="chips prg-chips">${PRG_RANGES.map(([k, l]) => `<button class="chip ${UI.prgRange === k ? 'on' : ''}" data-act="${act}" ${extra} data-k="${k}">${l}</button>`).join('')}</div>`;
+// Detail-Diagramm einer Übung
+function exProgHtml(id) {
+  const ex = exById(id); if (!ex) return '';
+  const bw = isBW(ex), metrics = bw ? PRG_METRICS.filter(m => m[0] === 'reps') : PRG_METRICS;
+  if (!metrics.some(m => m[0] === UI.exMetric)) UI.exMetric = metrics[0][0];
+  const [mk, ml, unit] = PRG_METRICS.find(m => m[0] === UI.exMetric);
+  const { pts, marks, base } = exPoints(id, mk), last = pts.at(-1)?.[1], c = chg(base, last);
+  const best = Math.max(0, ...exPoints(id, mk, 0).all.map(p => p[1]));
+  return `${metrics.length > 1 ? `<div class="chips prg-chips">${metrics.map(([k, l]) => `<button class="chip ${UI.exMetric === k ? 'on' : ''}" data-act="exMetric" data-id="${id}" data-k="${k}">${l}</button>`).join('')}</div>` : ''}
+    ${rangeChips('exRange', `data-id="${id}"`)}
+    <div class="grid3" style="margin:12px 0 6px">
+      <div class="stat"><b>${base != null ? fmt(base, 1) : '–'}</b><span>Start (${unit})</span></div>
+      <div class="stat"><b>${last != null ? fmt(last, 1) : '–'}</b><span>Zuletzt (${unit})</span></div>
+      <div class="stat"><b class="${c ? (c.abs > 0 ? 'up' : c.abs < 0 ? 'down' : '') : ''}">${c ? `${c.abs > 0 ? '+' : ''}${fmt(c.abs, 1)}` : '–'}</b><span>${c ? pctTxt(c.pct) : 'Veränderung'}</span></div>
+    </div>
+    ${lineChart([{ pts, color: 'var(--accent)', dots: pts.length <= 24, area: true, marks }], { h: 170 })}
+    <div class="small muted" style="margin-top:6px">${ml}${mk === 'e1rm' ? ' (aus Gewicht × Wdh geschätzt)' : mk === 'vol' ? ' pro Einheit (kg × Wdh)' : mk === 'reps' ? ' pro Einheit' : ' pro Einheit'} · ◯ = neuer Rekord · Bestwert ${fmt(best, 1)} ${unit}</div>`;
+}
+// Plan-Fortschritt: Kraft-Index (Ø Veränderung des 1RM aller Plan-Übungen) + Volumen pro Woche
+function planProgress(pg) {
+  const days = programDays(pg), rids = new Set(days.map(d => d.r.id));
+  let ids = [...new Set(days.flatMap(d => d.r.exIds))].filter(id => exById(id) && exHistory(id).length);
+  if (!ids.length) ids = [...new Set(S.workouts.flatMap(w => w.entries.map(e => e.exId)))].filter(id => exById(id));
+  const from = prgFrom() || Math.min(...S.workouts.map(w => w.start), Date.now());
+  const ex = ids.map(id => { const e = exById(id), m = isBW(e) ? 'reps' : 'e1rm', p = exPoints(id, m, from); return { id, e, m, ...p, c: chg(p.base, p.pts.at(-1)?.[1]) }; });
+  // Wochen im Zeitraum
+  const inPlan = w => !rids.size || rids.has(w.routineId);
+  const first = Math.max(from, Math.min(...S.workouts.filter(inPlan).map(w => w.start), Date.now())); // leere Wochen vor dem ersten Training weglassen
+  const weeks = []; for (let t = weekStart(new Date(first)).getTime(); t <= Date.now(); t += 7 * 864e5) weeks.push(t);
+  const idx = weeks.map(ws => {
+    const we = ws + 7 * 864e5, v = ex.map(x => { if (!x.base) return null; const p = x.all.filter(q => q[0] < we).at(-1); return p ? (p[1] / x.base - 1) * 100 : null; }).filter(z => z != null);
+    return v.length ? [Math.min(we, Date.now()), Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10] : null;
+  }).filter(Boolean);
+  const vol = weeks.map(ws => S.workouts.filter(w => w.start >= ws && w.start < ws + 7 * 864e5 && inPlan(w)).reduce((a, w) => a + w.entries.reduce((b, e) => b + WK(e.sets).reduce((c, s) => c + (s.w || 0) * s.r, 0), 0), 0));
+  const nW = S.workouts.filter(w => w.start >= from && inPlan(w)).length;
+  const valid = ex.filter(x => x.c), avg = valid.length ? valid.reduce((a, x) => a + x.c.pct, 0) / valid.length : null;
+  return { ex, idx, weeks, vol, nW, avg, n: valid.length };
+}
+function planProgressCard() {
+  if (!S.workouts.length) return '';
+  const pg = activeProgram(), P = planProgress(pg);
+  const vw = P.vol.slice(-12), vl = P.weeks.slice(-12).map(t => 'KW' + isoWeek(new Date(t)));
+  const full = P.weeks.at(-1) + 7 * 864e5 > Date.now() ? P.vol.slice(0, -1) : P.vol; // laufende Woche ist noch unvollständig
+  const half = Math.floor(full.length / 2), a1 = full.slice(0, half), a2 = full.slice(half);
+  const vc = a1.length && a2.length && a1.some(Boolean) ? chg(a1.reduce((a, b) => a + b, 0) / a1.length, a2.reduce((a, b) => a + b, 0) / a2.length) : null;
+  return `<h3>Fortschritt${pg ? ` · ${esc(pg.name)}` : ''}</h3>
+  <div class="card">
+    <div class="card-head"><span class="label">Kraft-Index</span>${rangeChips('prgRange')}</div>
+    <div class="prg-big"><b class="${pctCls(P.avg)}">${pctTxt(P.avg)}</b><span>Ø Kraftzuwachs von ${P.n} Übung${P.n === 1 ? '' : 'en'}${pg ? ' im Plan' : ''}</span></div>
+    ${P.idx.length >= 2 ? lineChart([{ pts: P.idx, color: 'var(--accent)', area: true, dots: P.idx.length <= 16, zero: 0 }], { h: 150, fy: v => `${v > 0 ? '+' : ''}${fmt(v)} %` }) : '<div class="empty small">Noch zu wenig Trainings im Zeitraum – nach ein paar Einheiten erscheint hier deine Kurve.</div>'}
+    <div class="small muted" style="margin-top:6px">Durchschnittliche Veränderung des geschätzten 1RM (bei Körpergewichts-Übungen: Wiederholungen) gegenüber dem Start des Zeitraums.</div>
+    <div class="hr"></div>
+    <div class="card-head"><span class="label">Volumen pro Woche</span><span class="pill ${pctCls(vc?.pct)}">${vc ? pctTxt(vc.pct) : '–'}</span></div>
+    ${barChart(vw.map(v => Math.round(v / 100) / 10), vl, { color: 'var(--accent)', under: 'var(--accent-lo)', fv: v => String(v).replace('.', ',') })}
+    <div class="small muted" style="margin-top:4px">In Tonnen (Gewicht × Wdh) · ${P.nW} Training${P.nW === 1 ? '' : 's'} im Zeitraum${vc ? ' · Veränderung: 2. vs. 1. Hälfte des Zeitraums, ohne die laufende Woche' : ''}</div>
+  </div>
+  <div class="list prg-list">${P.ex.slice(0, UI.prgAll ? 99 : 6).map(x => `<div class="item tap" data-act="openExercise" data-id="${x.id}"><div class="t"><b>${esc(x.e.name)}</b>
+      <span>${x.pts.length ? `${x.m === 'reps' ? `${fmt(x.pts.at(-1)[1])} Wdh` : `1RM ${fmt(x.pts.at(-1)[1], 1)} kg`} · ${x.pts.length}×` : 'nicht im Zeitraum'}</span></div>
+      <div class="prg-spark">${sparkline(x.pts.map(p => p[1]), { w: 90, h: 30 })}</div><span class="pill ${pctCls(x.c?.pct)}">${x.c ? pctTxt(x.c.pct) : '–'}</span></div>`).join('')}</div>
+  ${P.ex.length > 6 ? `<button class="btn sm ghost block" style="margin-top:8px" data-act="prgAll">${UI.prgAll ? 'Weniger anzeigen' : `Alle ${P.ex.length} Übungen anzeigen`}</button>` : ''}`;
+}
+
 function plates(total) {
   const bar = S.settings.bar || 20;
   let side = (total - bar) / 2; if (side <= 0) return total > 0 && total <= bar ? 'Nur Stange' : '';
@@ -2950,6 +3041,7 @@ function trainOverview() {
       <button class="btn block ghost" style="margin-top:8px" data-act="goMuscles">Volumen pro Muskel ansehen</button>
     </div>` : '<div class="card"><b>Kein aktiver Plan</b><div class="small muted" style="margin-top:4px">Bau dir einen Plan oder aktiviere eine Vorlage unten.</div></div>';
   })()}
+  ${planProgressCard()}
   <h3>Alle Trainingspläne</h3>
   <div class="list">${S.programs.map(p => `<div class="item tap" data-act="editProgram" data-id="${p.id}"><div class="t"><b>${esc(p.name)}</b><span>${programMeta(p)}</span></div>
     ${p.id === S.activeProgram ? '<span class="pill acc">Aktiv</span>' : `<button class="btn sm" data-act="setActiveProgram" data-id="${p.id}">Aktivieren</button>`}</div>`).join('')}</div>
@@ -3608,7 +3700,6 @@ function renderExPicker() {
 function exerciseSheet(id) {
   const ex = exById(id); if (!ex) return;
   const h = exHistory(id), s = suggest(ex);
-  const pts = h.slice().reverse().map(x => { const b = bestSet(x.sets); return [x.start, b.w ? e1rm(b.w, b.r) : b.r]; });
   const best = bestSet(h.flatMap(x => x.sets));
   openSheet(`<div class="card-head"><h2 style="margin:0">${esc(ex.name)}</h2><button class="btn sm" data-act="editExercise" data-id="${ex.id}">✎ Bearbeiten</button></div>
     <div class="small muted" style="margin-bottom:10px">${muscleText(ex)} · ${ex.sets} Sätze × ${RR(ex).min}–${RR(ex).max} Wdh · Steigern ab ${RR(ex).up} Wdh · +${fmt(ex.inc, 2)} kg · Pause ${mmss(ex.rest)}</div>
@@ -3619,8 +3710,8 @@ function exerciseSheet(id) {
       <div class="stat"><b>${best?.w ? fmt(e1rm(best.w, best.r), 1) : '–'}</b><span>e1RM (kg)</span></div>
       <div class="stat"><b>${h.length}</b><span>Einheiten</span></div>
     </div>
-    <h3>${best?.w ? 'Geschätztes 1RM' : 'Beste Wdh.'} über Zeit</h3>
-    ${lineChart([{ pts, color: 'var(--accent)', dots: true }])}
+    <h3>Fortschritt</h3>
+    <div id="exProg">${exProgHtml(id)}</div>
     <h3>Verlauf</h3>
     ${h.length ? `<div class="list">${h.slice(0, 15).map(x => `<div class="item"><div class="t"><b>${fmtDate(x.date, { weekday: 'short', day: '2-digit', month: '2-digit' })}</b>
       <span>${x.sets.map(z => `${fmt(z.w, 2)}×${z.r}`).join(' · ')}</span></div></div>`).join('')}</div>` : '<div class="empty small">Noch nicht trainiert.</div>'}
@@ -4418,6 +4509,10 @@ const A = {
     readSettingsForm(); S.meta.onboarded = true; save(); render();
     toast(S.settings.kcal < 1200 ? '⚠ Unter 1.200 kcal/Tag – bitte nur mit ärztlicher Begleitung' : '✓ Gespeichert');
   },
+  prgRange: el => { UI.prgRange = el.dataset.k; render(); },
+  prgAll: () => { UI.prgAll = !UI.prgAll; render(); },
+  exRange: el => { UI.prgRange = el.dataset.k; const b = $('#exProg'); if (b) b.innerHTML = exProgHtml(el.dataset.id); },
+  exMetric: el => { UI.exMetric = el.dataset.k; const b = $('#exProg'); if (b) b.innerHTML = exProgHtml(el.dataset.id); },
   openLegal: el => openSheet(`<iframe class="legal-frame" src="${el.dataset.p}.html" title="${el.dataset.p}"></iframe><div class="sheet-actions"><button class="btn primary" data-act="closeSheet">Schließen</button></div>`),
   welcomeOk: () => { S.meta.welcomeOk = true; save(); render(); },
   askNotif: async () => { await Notification.requestPermission(); render(); if (Notification.permission === 'granted') notify('Benachrichtigungen aktiv', 'Du wirst ans Wiegen und ans Pausenende erinnert.'); },

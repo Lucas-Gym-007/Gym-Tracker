@@ -79,6 +79,9 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - Ein aktiver Plan: Die App schlägt automatisch den nächsten Tag vor, bei festen Wochentagen den heutigen
 - Eigene Übungen mit Haupt- und Hilfsmuskeln
 - Sätze mit Gewicht und Wiederholungen loggen, die Werte vom letzten Mal stehen daneben
+- **Progressions-Diagramme:**
+  - In den Übungsdetails: wählbare Kennzahl (geschätztes 1RM, Top-Gewicht, Volumen, Wiederholungen) und Zeitraum (4 Wochen, 3 Monate, 6 Monate, alles). Neue Rekorde sind markiert, dazu Start, letzter Wert und Veränderung in kg und %.
+  - Im Training-Tab unter „Fortschritt“: Kraft-Index des aktiven Plans (Ø Veränderung des 1RM aller Plan-Übungen), Volumen pro Woche mit Trend und jede Plan-Übung mit Mini-Kurve und Veränderung in %.
 - **Automatische Progression, es geht immer vorwärts (kein Deload):**
   - In den Einstellungen (Mehr → Progression) legst du den Wdh-Bereich fest (z.B. 8–12) und ab wie vielen Wdh. das Gewicht steigt (z.B. 12). Einzelne Übungen können optional einen eigenen Bereich haben.
   - Schaffst du in *allen* Sätzen die Steiger-Wdh. → nächstes Mal **+Steigerung** (z.B. +2,5 kg), Wdh. wieder ab dem Bereichsanfang
