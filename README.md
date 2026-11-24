@@ -84,6 +84,7 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
   - Im Training-Tab unter „Fortschritt“: Kraft-Index des aktiven Plans (Ø Veränderung des 1RM aller Plan-Übungen), Volumen pro Woche mit Trend und jede Plan-Übung mit Mini-Kurve und Veränderung in %.
 - **Automatische Progression, es geht immer vorwärts (kein Deload):**
   - In den Einstellungen (Mehr → Progression) legst du den Wdh-Bereich fest (z.B. 8–12) und ab wie vielen Wdh. das Gewicht steigt (z.B. 12). Einzelne Übungen können optional einen eigenen Bereich haben.
+  - **Satzpause** in den Einstellungen (Mehr → Satzpause): Standard 2:30, Schnellwahl 1:00–4:00 oder eigene Zeit („2:30“, „2,5“ oder Sekunden). Gilt für alle Übungen, optional eigene Pause pro Übung. Aufwärmsätze haben 45 s.
   - Schaffst du in *allen* Sätzen die Steiger-Wdh. → nächstes Mal **+Steigerung** (z.B. +2,5 kg), Wdh. wieder ab dem Bereichsanfang
   - Sonst: gleiches Gewicht, **+1 Wdh. pro Satz**
   - Bei jeder Übung steht **„Letztes Mal → Heute“** mit der Vorgabe, z.B. `60 kg · 3×12 → 62,5 kg · 3×8`. Die Vorgabe steht auch im Gym-Modus und nach dem Training unter „Nächstes Mal“.

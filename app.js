@@ -233,7 +233,7 @@ const DEFAULT_PROGRAMS = [
   { id: 'home', name: 'Zuhause mit Kurzhanteln', perWeek: 3, days: ['home'] },
 ];
 const mkPrograms = () => DEFAULT_PROGRAMS.map(p => ({ ...p, days: p.days.map(rid => ({ rid, wd: null })) }));
-const SEED_V = 5; // Version der Standard-Daten (für Updates bestehender Daten)
+const SEED_V = 6; // Version der Standard-Daten (für Updates bestehender Daten)
 
 const DEFAULTS = () => ({
   v: 1,
@@ -244,6 +244,7 @@ const DEFAULTS = () => ({
     weighDay: 1, weighTime: '08:00', bar: 20, vol: {}, focus: [],
     prog: { min: 8, max: 12, up: 12 }, // Wdh-Bereich & Steiger-Schwelle für alle Übungen
     sleepGoal: 8,
+    restSec: 150, // Satzpause für alle Übungen (Sekunden)
   },
   foods: [], favFoods: [], water: {}, weights: [], measures: [], prs: [],
   sleep: [], dayCheck: {}, mobility: [], // Health: Schlaf, Tages-Check, Mobility-Einheiten
@@ -299,6 +300,10 @@ function load() {
     if (st.meta.seedV < 5) { // Progression: alle Übungen nutzen den Bereich aus den Einstellungen
       for (const e of st.exercises) e.ownRange = false;
       st.meta.seedV = 5;
+    }
+    if (st.meta.seedV < 6) { // Satzpause: alle Übungen nutzen die Pause aus den Einstellungen
+      for (const e of st.exercises) e.ownRest = false;
+      st.meta.seedV = 6;
     }
     for (const x of st.customFoods || []) delete x.barcode; // Barcode-Funktion entfernt
     return st;
@@ -493,6 +498,15 @@ function exHistory(exId) { // neueste zuerst
 }
 function workSets(sess) { const wk = Math.max(...sess.sets.map(s => s.w || 0)); return { wk, sets: sess.sets.filter(s => (s.w || 0) === wk) }; }
 
+// Satzpause einer Übung: aus den Einstellungen – außer die Übung hat eine eigene
+const restOf = ex => (ex?.ownRest && ex.rest ? ex.rest : S.settings.restSec || 150);
+// „2:30“, „2,5“ (Minuten) oder „150“ (Sekunden) → Sekunden
+function parseRest(v) {
+  v = String(v || '').trim().replace(',', '.'); if (!v) return null;
+  let s = v.includes(':') ? (+v.split(':')[0] || 0) * 60 + (+v.split(':')[1] || 0) : +v;
+  if (!v.includes(':') && s <= 10) s *= 60;
+  return Number.isFinite(s) && s > 0 ? Math.min(900, Math.max(15, Math.round(s / 5) * 5)) : null;
+}
 // Wdh-Bereich einer Übung: aus den Einstellungen – außer die Übung hat einen eigenen
 function RR(ex) {
   if (ex?.ownRange) return { min: ex.repMin, max: ex.repMax, up: ex.upAt || ex.repMax };
@@ -3097,7 +3111,7 @@ function workoutLogger() {
     const pl = ex.barbell ? plates(e.sets.find(x => !x.done)?.w ?? e.sets[0]?.w ?? 0) : '';
     return `<div class="card">
       <div class="ex-head"><button class="link" data-act="openExercise" data-id="${ex.id}">${esc(ex.name)}</button>
-        <span class="muted small">${RR(ex).min}–${RR(ex).max} Wdh · ${mmss(ex.rest)} Pause</span></div>
+        <span class="muted small">${RR(ex).min}–${RR(ex).max} Wdh · ${mmss(restOf(ex))} Pause</span></div>
       <input class="note-in" data-exnote="${ex.id}" value="${esc(ex.note || '')}" placeholder="+ Notiz (z.B. Sitz Stufe 4)" autocomplete="off">
       ${progBox(s)}
       ${pl ? `<div class="plates">${pl}</div>` : ''}
@@ -3269,6 +3283,14 @@ VIEWS.more = () => {
       <label class="f"><span>Trainings / Woche</span><input id="s_weeklyWorkouts" inputmode="numeric" value="${st.weeklyWorkouts}"></label>
     </div>
     <label class="f"><span>Gewicht Langhantelstange (kg) – für den Scheibenrechner</span><input id="s_bar" inputmode="decimal" value="${st.bar}"></label>
+    <button class="btn primary block" data-act="saveSettings">Speichern</button>
+  </div>
+
+  <div class="card">
+    <h2>Satzpause</h2>
+    <p class="small muted" style="margin-top:0">Pausentimer nach jedem Arbeitssatz – gilt für alle Übungen. Einzelnen Übungen kannst du beim Bearbeiten eine eigene Pause geben. Aufwärmsätze: 45 s.</p>
+    <div class="chips" id="s_restChips">${[60, 90, 120, 150, 180, 240].map(s => `<button class="chip ${(st.restSec || 150) === s ? 'on' : ''}" data-act="setRest" data-s="${s}">${mmss(s)}</button>`).join('')}</div>
+    <label class="f" style="margin-top:12px"><span>Eigene Zeit (Min:Sek)</span><input id="s_rest" inputmode="decimal" value="${mmss(st.restSec || 150)}" placeholder="z.B. 2:30"></label>
     <button class="btn primary block" data-act="saveSettings">Speichern</button>
   </div>
 
@@ -3702,7 +3724,7 @@ function exerciseSheet(id) {
   const h = exHistory(id), s = suggest(ex);
   const best = bestSet(h.flatMap(x => x.sets));
   openSheet(`<div class="card-head"><h2 style="margin:0">${esc(ex.name)}</h2><button class="btn sm" data-act="editExercise" data-id="${ex.id}">✎ Bearbeiten</button></div>
-    <div class="small muted" style="margin-bottom:10px">${muscleText(ex)} · ${ex.sets} Sätze × ${RR(ex).min}–${RR(ex).max} Wdh · Steigern ab ${RR(ex).up} Wdh · +${fmt(ex.inc, 2)} kg · Pause ${mmss(ex.rest)}</div>
+    <div class="small muted" style="margin-bottom:10px">${muscleText(ex)} · ${ex.sets} Sätze × ${RR(ex).min}–${RR(ex).max} Wdh · Steigern ab ${RR(ex).up} Wdh · +${fmt(ex.inc, 2)} kg · Pause ${mmss(restOf(ex))}${ex.ownRest ? ' (eigene)' : ''}</div>
     ${ex.note ? `<div class="small" style="margin-bottom:8px"><span class="muted">Notiz:</span> ${esc(ex.note)}</div>` : ''}
     <span class="label">Nächstes Training</span>${progBox(s)}<div class="small muted" style="margin:-4px 0 8px">${s.text}</div>
     <div class="grid3" style="margin:10px 0">
@@ -3728,10 +3750,11 @@ function exerciseEditSheet(id, fromPicker) {
     <div class="grid2">
       <label class="f"><span>Ziel-Sätze</span><input id="e_sets" inputmode="numeric" value="${ex.sets}"></label>
       <label class="f"><span>Steigerung (kg)</span><input id="e_inc" inputmode="decimal" value="${ex.inc}"></label>
-      <label class="f"><span>Pause (Sek.)</span><input id="e_rest" inputmode="numeric" value="${ex.rest}"></label>
       <label class="f"><span>Startgewicht (kg)</span><input id="e_start" inputmode="decimal" value="${ex.start}"></label>
       <label class="f row" style="margin-top:22px"><input type="checkbox" id="e_barbell" ${ex.barbell ? 'checked' : ''}> <span style="display:inline;margin:0">Langhantel</span></label>
     </div>
+    <label class="row" style="margin:4px 0 6px"><input type="checkbox" id="e_ownRest" ${ex.ownRest ? 'checked' : ''}> <span>Eigene Satzpause <span class="muted">(sonst ${mmss(S.settings.restSec || 150)} aus den Einstellungen)</span></span></label>
+    <label class="f ${ex.ownRest ? '' : 'hidden'}" id="e_restBox"><span>Satzpause (Min:Sek)</span><input id="e_rest" inputmode="decimal" value="${mmss(ex.ownRest && ex.rest ? ex.rest : S.settings.restSec || 150)}"></label>
     <label class="row" style="margin:4px 0 10px"><input type="checkbox" id="e_own" ${ex.ownRange ? 'checked' : ''}> <span>Eigener Wdh-Bereich für diese Übung <span class="muted">(sonst ${S.settings.prog.min}–${S.settings.prog.max}, steigern ab ${S.settings.prog.up} – aus den Einstellungen)</span></span></label>
     <div class="grid3 ${ex.ownRange ? '' : 'hidden'}" id="e_range">
       <label class="f"><span>Wdh. von</span><input id="e_repMin" inputmode="numeric" value="${ex.ownRange ? ex.repMin : S.settings.prog.min}"></label>
@@ -4058,7 +4081,7 @@ const A = {
     navigator.vibrate?.(30); save();
     if (!e.sets.some(s => !s.done)) { const nx = gymFirstOpen(GM.ei); if (nx != null) GM.ei = nx; }
     if (gymFirstOpen() == null) { UI.rest = null; tickRest(); renderGym(); speak('Stark! Alle Sätze erledigt.'); return; }
-    const restS = x.type === 'warm' ? 45 : ex.rest || 90;
+    const restS = x.type === 'warm' ? 45 : restOf(ex);
     startRest(restS); GM.warned = false; renderGym();
     speak(`Satz geschafft. ${restS >= 60 ? `${fmt(Math.round(restS / 30) / 2, 1).replace(',', ' Komma ')} Minuten` : `${restS} Sekunden`} Pause.`);
   },
@@ -4381,7 +4404,7 @@ const A = {
       if (s.w == null) s.w = 0;
       // Gewicht in folgende, noch offene Sätze übernehmen
       if (s.type !== 'warm') e.sets.slice(+el.dataset.s + 1).forEach(n => { if (!n.done && n.type !== 'warm') n.w = s.w; });
-      startRest(s.type === 'warm' ? 45 : exById(e.exId)?.rest || 90);
+      startRest(s.type === 'warm' ? 45 : restOf(exById(e.exId)));
       navigator.vibrate?.(30);
     }
     save(); render();
@@ -4400,7 +4423,7 @@ const A = {
     const v = {
       name, muscle: MUSCLE[[...EC.pm][0]].region, pm: [...EC.pm], sm: [...EC.sm], sets: Math.max(1, num($('#e_sets').value) || 3),
       ownRange: $('#e_own').checked, repMin: Math.max(1, num($('#e_repMin').value) || 8), repMax: Math.max(1, num($('#e_repMax').value) || 12), upAt: num($('#e_upAt').value) || null,
-      inc: Math.max(0.25, num($('#e_inc').value) || 2.5), rest: Math.max(0, num($('#e_rest').value) || 90),
+      inc: Math.max(0.25, num($('#e_inc').value) || 2.5), ownRest: $('#e_ownRest').checked, rest: parseRest($('#e_rest').value) || S.settings.restSec || 150,
       start: num($('#e_start').value) || 0, barbell: $('#e_barbell').checked, eq: $('#e_eq').value,
     };
     if (v.repMax < v.repMin) [v.repMin, v.repMax] = [v.repMax, v.repMin];
@@ -4511,6 +4534,11 @@ const A = {
   },
   prgRange: el => { UI.prgRange = el.dataset.k; render(); },
   prgAll: () => { UI.prgAll = !UI.prgAll; render(); },
+  setRest: el => {
+    S.settings.restSec = +el.dataset.s; save();
+    $$('#s_restChips .chip').forEach(c => c.classList.toggle('on', c === el)); const i = $('#s_rest'); if (i) i.value = mmss(S.settings.restSec);
+    toast(`✓ Satzpause ${mmss(S.settings.restSec)}`);
+  },
   exRange: el => { UI.prgRange = el.dataset.k; const b = $('#exProg'); if (b) b.innerHTML = exProgHtml(el.dataset.id); },
   exMetric: el => { UI.exMetric = el.dataset.k; const b = $('#exProg'); if (b) b.innerHTML = exProgHtml(el.dataset.id); },
   openLegal: el => openSheet(`<iframe class="legal-frame" src="${el.dataset.p}.html" title="${el.dataset.p}"></iframe><div class="sheet-actions"><button class="btn primary" data-act="closeSheet">Schließen</button></div>`),
@@ -4596,6 +4624,7 @@ function readSettingsForm() {
     weighDay: +$('#s_weighDay').value, weighTime: $('#s_weighTime').value || '08:00',
   });
   readProgForm();
+  const r = parseRest($('#s_rest')?.value); if (r) st.restSec = r;
 }
 
 /* ---------- Events ---------- */
@@ -4642,6 +4671,7 @@ document.addEventListener('change', e => {
   if (e.target.id === 'ek_auto') { S.settings.autoKcal = e.target.checked; save(); render(); if (e.target.checked) { S.meta.autoKcalWeek = null; autoKcalCheck(); } }
   if (e.target.id === 'photoFile' && e.target.files.length) { addPhotos([...e.target.files]); e.target.value = ''; }
   if (e.target.id === 'e_own') $('#e_range')?.classList.toggle('hidden', !e.target.checked);
+  if (e.target.id === 'e_ownRest') $('#e_restBox')?.classList.toggle('hidden', !e.target.checked);
   if (e.target.id === 'labelFile' && e.target.files[0]) { ocrScan(e.target.files[0]); e.target.value = ''; }
   if (e.target.id === 'cmp_a' || e.target.id === 'cmp_b') compareSheet($('#cmp_a').value, $('#cmp_b').value);
   if (e.target.id === 'importFile' && e.target.files[0]) {
