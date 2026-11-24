@@ -646,3 +646,7 @@ body.food-tab .view { padding-bottom: 96px; }
 #rec_days { margin: 14px 0; }
 .rep-ic { width: 13px; height: 13px; vertical-align: -2px; margin-right: 4px; stroke: var(--accent); }
 .btn .rep-ic { width: 15px; height: 15px; }
+
+/* Rechtliches in der App, Willkommen */
+.legal-frame { width: 100%; height: min(68vh, 640px); border: 0; border-radius: 16px; background: #0a0a0b; display: block; }
+.welcome b { font-size: 16px; }

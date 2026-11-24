@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   Gym Tracker – Ernährung, Gewicht & Training mit Auto-Progression
+   Duty First – Training, Ernährung & Health mit Auto-Progression
    Alle Daten liegen lokal im Browser (localStorage). Backup über "Mehr".
    ===================================================================== */
 
@@ -1897,8 +1897,10 @@ async function renderShareCard({ eyebrow, title, sub, stats = [], lines = [], ph
   // Fuß: Marke
   x.strokeStyle = gold; x.lineWidth = 6; x.lineCap = 'round';
   const bx = 80, by = H - 96;
-  [[14, -18, 14, 18], [46, -18, 46, 18], [4, -9, 4, 9], [56, -9, 56, 9], [14, 0, 46, 0]].forEach(([a, b, cc, d]) => { x.beginPath(); x.moveTo(bx + a, by + b); x.lineTo(bx + cc, by + d); x.stroke(); });
-  x.fillStyle = '#f3f0ea'; x.font = F(600, 30); x.fillText('GYM TRACKER', bx + 84, by + 11);
+  x.lineJoin = 'round';
+  [1, 0.78, 0.52].forEach((a, i) => { x.globalAlpha = a; const y0 = by - 20 + i * 13; x.beginPath(); x.moveTo(bx + 6, y0 + 15); x.lineTo(bx + 30, y0); x.lineTo(bx + 54, y0 + 15); x.stroke(); });
+  x.globalAlpha = 1;
+  x.fillStyle = '#f3f0ea'; x.font = F(600, 30); x.fillText('DUTY FIRST', bx + 84, by + 11);
   x.fillStyle = '#6d6962'; x.font = F(400, 26); x.textAlign = 'right'; x.fillText(new Date().toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' }), W - 80, by + 10); x.textAlign = 'left';
   return new Promise(res => c.toBlob(b => res(b), 'image/png'));
 }
@@ -2752,6 +2754,9 @@ VIEWS.today = () => {
     <button class="avatar" data-act="tab" data-tab="more" aria-label="Profil">${name ? esc(name[0].toUpperCase()) : ic('body')}</button>
   </div>
 
+  ${!S.meta.welcomeOk ? `<div class="card accent welcome"><b>Willkommen bei Duty First</b>
+    <div class="small muted" style="margin:6px 0 12px">Deine Daten bleiben nur auf diesem Gerät – kein Konto, kein Tracking. Die App ersetzt keine ärztliche Beratung; Nährwerte, Ziele und Tipps sind Richtwerte.</div>
+    <div class="row" style="gap:8px"><button class="btn sm ghost" data-act="openLegal" data-p="hinweise">Gesundheitshinweise</button><button class="btn sm primary" data-act="welcomeOk">Verstanden</button></div></div>` : ''}
   ${!S.meta.onboarded ? `<div class="notice" data-act="tab" data-tab="more">${ic('sparkle')}<div class="t">Profil einrichten<span>Ziele für Kalorien & Makros automatisch berechnen</span></div>${ic('chev', 'chev')}</div>` : ''}
   ${S.active ? `<div class="notice" data-act="tab" data-tab="train">${ic('activity')}<div class="t">${esc(S.active.name)}<span>Training läuft · <span data-elapsed style="display:inline">${mmss((Date.now() - S.active.start) / 1000)}</span></span></div>${ic('chev', 'chev')}</div>` : ''}
   ${wpTodayNotice()}
@@ -3212,7 +3217,12 @@ VIEWS.more = () => {
     </div>
     <button class="btn block ghost danger" style="margin-top:8px" data-act="resetAll">Alle Daten löschen</button>
   </div>
-  <div class="small muted" style="text-align:center">Gym Tracker · ${S.workouts.length} Trainings · ${S.foods.length} Essens-Einträge · ${S.weights.length} Wiegungen</div>`;
+  <div class="card">
+    <h2>Rechtliches & Hinweise</h2>
+    <div class="list">${[['hinweise', 'Gesundheitshinweise', 'Was die App kann – und was nicht'], ['datenschutz', 'Datenschutz', 'Alles bleibt auf deinem Gerät'], ['impressum', 'Impressum', 'Anbieterkennzeichnung'], ['lizenzen', 'Lizenzen', 'Verwendete Open-Source-Software']]
+      .map(([p, t, s]) => `<div class="item tap" data-act="openLegal" data-p="${p}"><div class="t"><b>${t}</b><span>${s}</span></div><span class="muted">›</span></div>`).join('')}</div>
+  </div>
+  <div class="small muted" style="text-align:center">Duty First · ${S.workouts.length} Trainings · ${S.foods.length} Essens-Einträge · ${S.weights.length} Wiegungen</div>`;
 };
 
 /* ---------- Fortschrittsfotos (IndexedDB, nur lokal) ---------- */
@@ -3766,9 +3776,9 @@ function downloadIcs() {
   const start = weighDue() ? first : (lastSlot > new Date() ? lastSlot : first);
   const dt = `${start.getFullYear()}${pad(start.getMonth() + 1)}${pad(start.getDate())}T${hh}${mm}00`;
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
-  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//GymTracker//DE', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
-    `UID:weighin-${uid()}@gymtracker`, `DTSTAMP:${stamp}`, `DTSTART:${dt}`, 'DURATION:PT10M',
-    `RRULE:FREQ=WEEKLY;BYDAY=${DAY_ICS[st.weighDay]}`, 'SUMMARY:Wiegen – Gym Tracker',
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DutyFirst//DE', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+    `UID:weighin-${uid()}@dutyfirst`, `DTSTAMP:${stamp}`, `DTSTART:${dt}`, 'DURATION:PT10M',
+    `RRULE:FREQ=WEEKLY;BYDAY=${DAY_ICS[st.weighDay]}`, 'SUMMARY:Wiegen – Duty First',
     'DESCRIPTION:Morgens nüchtern nach dem Toilettengang wiegen und in der App eintragen.',
     'BEGIN:VALARM', 'TRIGGER:PT0M', 'ACTION:DISPLAY', 'DESCRIPTION:Zeit zum Wiegen!', 'END:VALARM',
     'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
@@ -4036,7 +4046,7 @@ const A = {
     if (!SHARE) return;
     const file = new File([SHARE.blob], SHARE.name, { type: 'image/png' });
     try {
-      if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'Gym Tracker' });
+      if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'Duty First' });
       else { download(SHARE.blob, SHARE.name); toast('Bild gespeichert'); }
     } catch {}
   },
@@ -4404,7 +4414,12 @@ const A = {
     S.meta.onboarded = true; save(); render();
     toast(`Grundumsatz ${fmt(bmr)} · Verbrauch ${fmt(tdee)} → Ziel ${fmt(kcal)} kcal`);
   },
-  saveSettings: () => { readSettingsForm(); S.meta.onboarded = true; save(); render(); toast('✓ Gespeichert'); },
+  saveSettings: () => {
+    readSettingsForm(); S.meta.onboarded = true; save(); render();
+    toast(S.settings.kcal < 1200 ? '⚠ Unter 1.200 kcal/Tag – bitte nur mit ärztlicher Begleitung' : '✓ Gespeichert');
+  },
+  openLegal: el => openSheet(`<iframe class="legal-frame" src="${el.dataset.p}.html" title="${el.dataset.p}"></iframe><div class="sheet-actions"><button class="btn primary" data-act="closeSheet">Schließen</button></div>`),
+  welcomeOk: () => { S.meta.welcomeOk = true; save(); render(); },
   askNotif: async () => { await Notification.requestPermission(); render(); if (Notification.permission === 'granted') notify('Benachrichtigungen aktiv', 'Du wirst ans Wiegen und ans Pausenende erinnert.'); },
   downloadIcs,
   exportData: () => download(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }), `gym-tracker-backup-${today()}.json`),

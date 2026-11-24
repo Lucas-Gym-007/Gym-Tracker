@@ -1,0 +1,18 @@
+/* Rechtliche Seiten (Impressum, Datenschutz, Hinweise, Lizenzen) */
+:root { color-scheme: dark; --bg: #0a0a0b; --card: #131315; --text: #f3f0ea; --muted: #a39e95; --line: rgba(255, 255, 255, .08); --accent: #d6b680; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15.5px/1.65 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+main { max-width: 720px; margin: 0 auto; padding: calc(24px + env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom)); }
+.back { display: inline-block; color: var(--accent); text-decoration: none; font-weight: 600; margin-bottom: 18px; }
+.framed .back { display: none; }
+h1 { font-size: 30px; font-weight: 600; letter-spacing: -.02em; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0 0 26px; }
+h2 { font-size: 17px; font-weight: 600; margin: 30px 0 8px; }
+h3 { font-size: 15px; font-weight: 600; margin: 18px 0 4px; }
+p, li { color: #d9d4cb; }
+ul { padding-left: 20px; }
+a { color: var(--accent); }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; margin: 14px 0; }
+.ph { background: rgba(214, 182, 128, .14); color: var(--accent); border-radius: 6px; padding: 0 5px; }
+pre { white-space: pre-wrap; font-size: 12px; color: var(--muted); background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+footer { margin-top: 40px; color: var(--muted); font-size: 13px; }

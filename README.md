@@ -1,4 +1,4 @@
-# 🏋️ Gym Tracker
+# Duty First
 
 Deine All-in-One-Fitness-App: **Essen, Training, Progress & PRs** in einer App, mit **automatischer Progression**.
 
@@ -118,6 +118,9 @@ Lokal testen: `python3 -m http.server` im Ordner starten und `http://localhost:8
 |---|---|
 | `index.html` | App-Gerüst und Navigation |
 | `app.js` | gesamte Logik (Ernährung, Gewicht, Training, Progression) |
+| `impressum.html`, `datenschutz.html`, `hinweise.html`, `lizenzen.html` | Rechtstexte (auch in der App unter Mehr → Rechtliches); Platzhalter in [eckigen Klammern] vor der Veröffentlichung füllen |
+| `netlify.toml`, `.well-known/assetlinks.json` | Hosting-Einstellungen (Sicherheits-Header) und die Verknüpfung von App und Webseite für Google Play |
+| `store/` | Play-Store-Eintrag: Texte, Icon, Titelgrafik, Screenshots und die Schritt-für-Schritt-Anleitung `store/ANLEITUNG.md` |
 | `health.js` | Health-Tab: Recovery, Ernährungs-Bewertung, Schlaf, Mobility |
 | `foods.js` | Lebensmittel-Datenbank (offline) |
 | `vendor/ocr/` | Texterkennung für Nährwerttabellen (offline) |

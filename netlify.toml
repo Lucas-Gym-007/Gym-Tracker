@@ -1,0 +1,34 @@
+# Hosting auf Netlify: kein Build-Schritt, die App wird so ausgeliefert, wie sie im Repo liegt.
+[build]
+  publish = "."
+  command = ""
+
+# Service Worker nie aus dem Cache – sonst kommen Updates verspätet an
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# Verknüpfung App ↔ Webseite (Google Play / Trusted Web Activity)
+[[headers]]
+  for = "/.well-known/assetlinks.json"
+  [headers.values]
+    Content-Type = "application/json"
+    Access-Control-Allow-Origin = "*"
+
+# Sicherheit: nur eigene Inhalte, keine externen Verbindungen, Kamera nur für die App selbst
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: data:; font-src 'self'; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "camera=(self), microphone=(), geolocation=(), payment=(), usb=()"
+    Strict-Transport-Security = "max-age=31536000"
+
+# Repo-Interna nicht ausliefern
+[[redirects]]
+  from = "/README.md"
+  to = "/404.html"
+  status = 404
+  force = true
