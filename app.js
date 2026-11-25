@@ -2344,6 +2344,46 @@ function applyKcalGoal(kcal) {
   Object.assign(st, { kcal, protein, fat, carbs: Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4)) });
 }
 const paceText = r => (r.kgWeek ? `${r.kgWeek < 0 ? '−' : '+'}${fmt(r.pace, 2)} % KG pro Woche ≈ ${sgn(r.kgWeek, 2)} kg` : 'Gewicht halten');
+/* ---------- Ernährungs-Verlauf ---------- */
+const F_METRICS = [['kcal', 'Kalorien', 'kcal'], ['p', 'Protein', 'g'], ['c', 'Kohlenhydrate', 'g'], ['f', 'Fett', 'g'], ['water', 'Wasser', 'ml']];
+const F_RANGES = [['1w', '7 T', 7], ['4w', '4 W', 28], ['3m', '3 M', 91]];
+function fGoal(m) { const st = S.settings; return { kcal: st.kcal, p: st.protein, c: st.carbs, f: st.fat, water: st.water }[m]; }
+function fVal(d, m) { return m === 'water' ? S.water[d] || 0 : dayTotals(d)[m]; }
+// „im Ziel“: Kalorien ±10 %, Protein ≥ 90 %, KH/Fett ±15 %, Wasser ≥ Ziel
+function fHit(v, g, m) { return m === 'kcal' ? Math.abs(v - g) <= g * 0.1 : m === 'p' ? v >= g * 0.9 : m === 'water' ? v >= g : Math.abs(v - g) <= g * 0.15; }
+function foodHistoryCard() {
+  const m = UI.fMetric || 'kcal', rk = UI.fRange || '1w', n = F_RANGES.find(r => r[0] === rk)[2];
+  const [, label, unit] = F_METRICS.find(x => x[0] === m), goal = fGoal(m), t = today();
+  const days = Array.from({ length: n }, (_, i) => addDays(t, i - n + 1));
+  const logged = d => (m === 'water' ? (S.water[d] || 0) > 0 : dayTotals(d).kcal > 0);
+  if (!days.some(logged) && !S.foods.some(f => !f.planned)) return '';
+  const vals = days.map(d => (logged(d) ? Math.round(fVal(d, m)) : null));
+  const full = days.filter(d => d < t && logged(d)), fv = full.map(d => fVal(d, m)); // ohne heute (läuft noch)
+  const avg = fv.length ? fv.reduce((a, b) => a + b, 0) / fv.length : null, hit = full.filter(d => fHit(fVal(d, m), goal, m)).length;
+  const lastW = days.filter(d => d < t && d >= addDays(t, -7) && logged(d)).map(d => fVal(d, m)), prevW = Array.from({ length: 7 }, (_, i) => addDays(t, -8 - i)).filter(logged).map(d => fVal(d, m));
+  const tr = lastW.length && prevW.length ? chg(prevW.reduce((a, b) => a + b, 0) / prevW.length, lastW.reduce((a, b) => a + b, 0) / lastW.length) : null;
+  let chart;
+  if (n === 7) chart = barChart(vals.map(v => v || 0), days.map(d => (d === t ? 'Heute' : DAYS[parseYmd(d).getDay()].slice(0, 2))), { goal, color: 'var(--accent)', under: 'var(--accent)', fv: v => fmt(v) });
+  else {
+    const pts = days.map((d, i) => (vals[i] != null && d < t ? [parseYmd(d).getTime() + 432e5, vals[i]] : null)).filter(Boolean);
+    const avg7 = pts.map((p, i) => { const w = pts.filter(q => q[0] <= p[0] && q[0] > p[0] - 7 * 864e5); return [p[0], Math.round(w.reduce((a, q) => a + q[1], 0) / w.length)]; });
+    chart = pts.length >= 2 ? lineChart([{ pts, color: 'rgba(214,182,128,.45)', width: 1.2, dots: pts.length <= 40 }, { pts: avg7, color: 'var(--accent)', width: 2.6, area: true }], { h: 160, goal })
+      : '<div class="empty small">Noch zu wenige vollständige Tage im Zeitraum.</div>';
+  }
+  return `<h3>Verlauf</h3>
+  <div class="card fh">
+    <div class="chips prg-chips">${F_METRICS.map(([k, l]) => `<button class="chip ${m === k ? 'on' : ''}" data-act="fMetric" data-k="${k}">${l}</button>`).join('')}</div>
+    <div class="card-head" style="margin:10px 0 4px"><span class="label">${label} pro Tag</span><div class="chips prg-chips" style="margin:0">${F_RANGES.map(([k, l]) => `<button class="chip ${rk === k ? 'on' : ''}" data-act="fRange" data-k="${k}">${l}</button>`).join('')}</div></div>
+    ${chart}
+    ${n > 7 ? '<div class="small muted" style="margin-top:4px">Punkte = einzelne Tage · Linie = 7-Tage-Durchschnitt · gestrichelt = Ziel</div>' : ''}
+    <div class="grid3" style="margin-top:12px">
+      <div class="stat"><b>${avg != null ? fmt(avg) : '–'}</b><span>Ø ${unit}/Tag</span></div>
+      <div class="stat"><b>${full.length ? `${hit}/${full.length}` : '–'}</b><span>Tage im Ziel</span></div>
+      <div class="stat"><b class="${tr ? (m === 'kcal' && S.settings.goal === 'cut' ? (tr.pct > 3 ? 'down' : tr.pct < -3 ? 'up' : '') : pctCls(tr.pct)) : ''}">${tr ? pctTxt(tr.pct) : '–'}</b><span>Trend 7 T</span></div>
+    </div>
+    <div class="small muted" style="margin-top:8px">Ziel ${fmt(goal)} ${unit}${m === 'kcal' ? ' · im Ziel = ±10 %' : m === 'p' ? ' · im Ziel = mind. 90 %' : m === 'water' ? '' : ' · im Ziel = ±15 %'} · Werte ohne heute · Trend = letzte 7 Tage vs. die 7 davor</div>
+  </div>`;
+}
 function energyCard() {
   const r = kcalRecommendation(); if (!r) return '';
   const a = r.a, st = S.settings;
@@ -3093,6 +3133,7 @@ VIEWS.food = () => {
     </div>`;
   }).join('')}
   <button class="btn sm ghost block" style="margin-top:4px" data-act="mealsSheet">Mahlzeiten anpassen · ${Object.keys(MEALS).length} pro Tag</button>
+  ${foodHistoryCard()}
   <h3>Planen & Ideen</h3>
   <div class="notice" data-act="recList">${ic('calendar')}<div class="t">Regelmäßige Mahlzeiten${(S.recurring || []).length ? ` · ${S.recurring.length}` : ''}<span>${(S.recurring || []).length ? S.recurring.slice(0, 3).map(r => `${esc(r.name)} ${daysTxt(r.days)}`).join(' · ') : 'z.B. jeden Morgen Kaffee oder mittwochs Döner – trägt sich automatisch ein'}</span></div>${ic('chev', 'chev')}</div>
   ${isToday ? `<div class="notice plan-tm" data-act="planDay" data-d="${tm}">${ic('calendar')}<div class="t">Morgen planen<span>${tmN ? `${tmN} ${tmN === 1 ? 'Eintrag' : 'Einträge'} · ${fmt(tmK)} kcal geplant` : 'Lege fest, was du morgen isst – dann nur noch abhaken'}</span></div>${ic('chev', 'chev')}</div>` : ''}
@@ -4623,6 +4664,8 @@ const A = {
   },
   prgRange: el => { UI.prgRange = el.dataset.k; render(); },
   prgAll: () => { UI.prgAll = !UI.prgAll; render(); },
+  fMetric: el => { UI.fMetric = el.dataset.k; render(); },
+  fRange: el => { UI.fRange = el.dataset.k; render(); },
   setRest: el => {
     S.settings.restSec = +el.dataset.s; save();
     $$('#s_restChips .chip').forEach(c => c.classList.toggle('on', c === el)); const i = $('#s_rest'); if (i) i.value = mmss(S.settings.restSec);

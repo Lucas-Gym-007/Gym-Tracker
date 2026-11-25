@@ -1,4 +1,4 @@
-const CACHE = 'gymtracker-v26';
+const CACHE = 'gymtracker-v27';
 const ASSETS = ['./', './index.html', './styles.css', './foods.js', './app.js', './health.js', './manifest.webmanifest',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png',
   './legal.css', './legal.js', './impressum.html', './datenschutz.html', './hinweise.html', './lizenzen.html'];

@@ -681,3 +681,6 @@ body.food-tab .view { padding-bottom: 96px; }
 .updn button { width: 26px; height: 17px; border: 0; border-radius: 6px; background: rgba(255, 255, 255, .05); color: var(--muted); font-size: 8.5px; line-height: 1; padding: 0; }
 .updn button:disabled { opacity: .25; }
 .rt-list .item { gap: 8px; padding-left: 12px; padding-right: 10px; }
+
+/* Ernährungs-Verlauf */
+.fh .card-head .prg-chips .chip { padding: 4px 10px; }
