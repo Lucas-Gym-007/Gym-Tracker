@@ -74,7 +74,12 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - **Satz-Typen:** Arbeitssatz, **W** Aufwärmen, **D** Drop-Satz, **F** bis Versagen. Aufwärmsätze zählen nicht für Volumen, Rekorde und Progression. Die Aufwärm-Rampe wird automatisch berechnet und kann pro Übung im Trainingstag fest eingeplant werden.
 
 **💪 Training**
-- **Plan-Baukasten**: Trainingsplan aus Trainingstagen zusammenstellen, Sätze pro Übung festlegen, als Rotation (x× pro Woche) oder mit festen Wochentagen. Das geplante Volumen pro Muskel siehst du live beim Bauen.
+- **Plan-Baukasten**: beliebig viele Trainingspläne speichern und mit einem Tipp wechseln. Zwei Arten:
+  - **Nach Wochentagen:** Mo–So bekommt je einen Trainingstag oder ist Ruhetag.
+  - **Als Reihenfolge (Zyklus):** Tag 1, Tag 2, … mit optionalen Ruhetagen, unabhängig vom Wochentag, z. B. Push → Pull → Ruhe → Beine → Ruhe. Die App merkt sich, wo du im Zyklus stehst, und zeigt, wann der nächste Tag fällig ist („Heute“, „Morgen“, „in 2 Tagen“).
+  - Tage und Übungen lassen sich **per Ziehen am Griff ⠿** oder mit ▲▼ verschieben, auch im laufenden Training mit ↑↓.
+  - **Duplizieren** legt eine unabhängige Kopie samt Trainingstagen an, gut für Plan-Varianten.
+  - Sätze pro Übung festlegen; das geplante Volumen pro Muskel siehst du live beim Bauen.
 - Vorlagen: Push/Pull/Beine, Oberkörper/Unterkörper, Ganzkörper A/B, Zuhause mit Kurzhanteln
 - Ein aktiver Plan: Die App schlägt automatisch den nächsten Tag vor, bei festen Wochentagen den heutigen
 - Eigene Übungen mit Haupt- und Hilfsmuskeln

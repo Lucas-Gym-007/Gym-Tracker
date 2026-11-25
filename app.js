@@ -233,7 +233,7 @@ const DEFAULT_PROGRAMS = [
   { id: 'home', name: 'Zuhause mit Kurzhanteln', perWeek: 3, days: ['home'] },
 ];
 const mkPrograms = () => DEFAULT_PROGRAMS.map(p => ({ ...p, days: p.days.map(rid => ({ rid, wd: null })) }));
-const SEED_V = 6; // Version der Standard-Daten (für Updates bestehender Daten)
+const SEED_V = 7; // Version der Standard-Daten (für Updates bestehender Daten)
 
 const DEFAULTS = () => ({
   v: 1,
@@ -304,6 +304,10 @@ function load() {
     if (st.meta.seedV < 6) { // Satzpause: alle Übungen nutzen die Pause aus den Einstellungen
       for (const e of st.exercises) e.ownRest = false;
       st.meta.seedV = 6;
+    }
+    if (st.meta.seedV < 7) { // Pläne: Art festlegen (Wochentage oder Reihenfolge/Zyklus)
+      for (const p of st.programs || []) p.mode = p.mode || ((p.days || []).some(d => d.wd != null) ? 'week' : 'cycle');
+      st.meta.seedV = 7;
     }
     for (const x of st.customFoods || []) delete x.barcode; // Barcode-Funktion entfernt
     return st;
@@ -652,13 +656,19 @@ function newEntry(ex, n = ex.sets) {
   const s = suggest(ex);
   return { exId: ex.id, sets: Array.from({ length: n }, (_, i) => ({ w: s.w, r: null, t: s.reps[i] ?? s.reps.at(-1), done: false })) };
 }
-function startWorkout(routineId) {
+function startWorkout(routineId, pos) {
   if (S.active) { UI.tab = 'train'; render(); return; }
   const r = S.routines.find(x => x.id === routineId);
   S.active = {
     id: uid(), name: r ? r.name : 'Freies Training', routineId: r?.id || null, start: Date.now(), date: today(),
     entries: r ? r.exIds.map(exById).filter(Boolean).map(ex => { const e = newEntry(ex, daySets(r, ex)); if (r.warm?.[ex.id]) e.sets.unshift(...warmupSets(ex, e.sets[0]?.w)); return e; }) : [],
   };
+  const pg = activeProgram();
+  if (pg && r && pg.days.some(d => d.rid === r.id)) {
+    const nx = nextDay();
+    S.active.planId = pg.id;
+    S.active.planPos = pos != null && pos !== '' ? +pos : nx?.r?.id === r.id && nx.pos != null ? nx.pos : pg.days.findIndex(d => d.rid === r.id);
+  }
   save(); UI.tab = 'train'; render(); window.scrollTo(0, 0);
 }
 
@@ -695,20 +705,46 @@ function weekVolume(d) { // Hauptmuskel = 1 Satz, Hilfsmuskel = ½ Satz
 }
 const daySets = (r, ex) => r.sets?.[ex.id] ?? ex.sets;
 function programDays(pg) { return (pg?.days || []).map(d => ({ ...d, r: S.routines.find(r => r.id === d.rid) })).filter(d => d.r); }
+// Art des Plans: 'week' = feste Wochentage, 'cycle' = Reihenfolge (Zyklus, optional mit Ruhetagen)
+const progMode = pg => pg?.mode || ((pg?.days || []).some(d => d.wd != null) ? 'week' : 'cycle');
+// Wie oft zählt jeder Trainingstag pro Woche?
+function dayWeights(pg) {
+  const days = programDays(pg), mode = progMode(pg), len = (pg?.days || []).length, rest = (pg?.days || []).some(d => d.rest);
+  return days.map(d => ({ ...d, w: mode === 'week' ? (d.wd != null ? 1 : 0) : rest ? 7 / len : (pg.perWeek || 3) / Math.max(1, days.length) }));
+}
 function plannedVolume(pg) {
-  const vol = emptyVol(), days = programDays(pg);
-  const sched = days.some(d => d.wd != null);
-  for (const d of days) {
-    const w = sched ? (d.wd != null ? 1 : 0) : (pg.perWeek || 3) / days.length;
-    for (const id of d.r.exIds) { const ex = exById(id); if (ex) addVol(vol, ex, daySets(d.r, ex) * w); }
-  }
+  const vol = emptyVol();
+  for (const d of dayWeights(pg)) for (const id of d.r.exIds) { const ex = exById(id); if (ex) addVol(vol, ex, daySets(d.r, ex) * d.w); }
   return vol;
 }
 const activeProgram = () => S.programs.find(p => p.id === S.activeProgram) || null;
+// Tage eines Plans für die Übersicht (Wochentage sortiert bzw. Zyklus inkl. Ruhetage)
+function planRows(pg, nx) {
+  const mode = progMode(pg);
+  const rows = mode === 'week' ? programDays(pg).filter(d => d.wd != null).sort((a, b) => ((a.wd + 6) % 7) - ((b.wd + 6) % 7)).map(d => ({ ...d, tag: DAYS[d.wd].slice(0, 2) }))
+    : (pg.days || []).map((d, i) => ({ ...d, i, r: d.rid ? S.routines.find(r => r.id === d.rid) : null, tag: `Tag ${i + 1}` })).filter(d => d.rest || d.r);
+  return rows.map(d => {
+    if (d.rest) return `<div class="item plan-rest"><div class="t"><b><span class="pill">${d.tag}</span> Ruhetag</b><span>Erholung</span></div></div>`;
+    const isNext = nx && nx.r?.id === d.r.id && (mode === 'week' ? nx.wd === d.wd : nx.pos === d.i);
+    return `<div class="item ${isNext ? 'plan-next' : ''}"><div class="t"><b><span class="pill ${isNext ? 'acc' : ''}">${d.tag}</span> ${esc(d.r.name)}</b>
+      <span>${d.r.exIds.map(id => { const ex = exById(id); return ex ? `${esc(ex.name)} ${daySets(d.r, ex)}×` : ''; }).filter(Boolean).join(' · ')}</span></div>
+      <button class="btn sm ${isNext ? 'primary' : ''}" data-act="startWorkout" data-id="${d.r.id}" ${d.i != null ? `data-pos="${d.i}"` : ''}>Start</button></div>`;
+  }).join('');
+}
 function programMeta(pg) {
-  const days = programDays(pg), sched = days.some(d => d.wd != null);
-  const direct = days.reduce((a, d) => a + d.r.exIds.reduce((b, id) => { const ex = exById(id); return b + (ex ? daySets(d.r, ex) : 0); }, 0) * (sched ? (d.wd != null ? 1 : 0) : (pg.perWeek || 3) / days.length), 0);
-  return `${days.length} Tag${days.length === 1 ? '' : 'e'} · ${sched ? days.filter(d => d.wd != null).sort((a, b) => ((a.wd + 6) % 7) - ((b.wd + 6) % 7)).map(d => DAYS[d.wd].slice(0, 2)).join('/') : `${pg.perWeek || 3}× pro Woche`} · ~${fmt(direct)} Sätze/Woche`;
+  const days = programDays(pg), mode = progMode(pg), all = pg.days || [], rests = all.filter(d => d.rest).length;
+  const direct = dayWeights(pg).reduce((a, d) => a + d.r.exIds.reduce((b, id) => { const ex = exById(id); return b + (ex ? daySets(d.r, ex) : 0); }, 0) * d.w, 0);
+  const when = mode === 'week' ? days.filter(d => d.wd != null).sort((a, b) => ((a.wd + 6) % 7) - ((b.wd + 6) % 7)).map(d => DAYS[d.wd].slice(0, 2)).join('/') || 'keine Wochentage'
+    : rests ? `Zyklus ${all.length} Tage (${days.length} Training, ${rests} Ruhe)` : `${days.length} Tage im Wechsel · ${pg.perWeek || 3}× pro Woche`;
+  return `${mode === 'week' ? `${days.length} Trainingstag${days.length === 1 ? '' : 'e'} · ` : ''}${when} · ~${fmt(direct)} Sätze/Woche`;
+}
+const dayDiff = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / 864e5);
+// „Heute“, „Morgen“, „Mi“, „in 3 Tagen“ …
+function whenTxt(nx) {
+  if (!nx) return '';
+  if (nx.wd != null) return nx.inDays === 0 ? 'Heute' : nx.inDays === 1 ? 'Morgen' : DAYS[nx.wd];
+  if (nx.inDays == null) return 'Als Nächstes';
+  return nx.inDays === 0 ? 'Heute' : nx.inDays === 1 ? 'Morgen' : `in ${nx.inDays} Tagen`;
 }
 function nextDay() {
   const pg = activeProgram(), days = programDays(pg);
@@ -721,10 +757,16 @@ function nextDay() {
       if (d) return { r: d.r, wd: d.wd, inDays: i };
     }
   }
+  // Reihenfolge (Zyklus): nach der zuletzt trainierten Position weiter, Ruhetage zählen als Kalendertage
+  const slots = pg.days, len = slots.length, rest = slots.some(d => d.rest);
+  const ok = i => slots[i]?.rid && S.routines.some(r => r.id === slots[i].rid), rOf = i => S.routines.find(r => r.id === slots[i].rid);
   const last = [...S.workouts].sort((a, b) => b.start - a.start).find(w => days.some(d => d.rid === w.routineId));
-  if (!last) return { r: days[0].r };
-  const i = days.findIndex(d => d.rid === last.routineId);
-  return { r: days[(i + 1) % days.length].r };
+  if (!last) { const j = slots.findIndex((_, i) => ok(i)); return { r: rOf(j), pos: j, inDays: rest ? 0 : null }; }
+  let pos = last.planId === pg.id && slots[last.planPos]?.rid === last.routineId ? last.planPos : slots.findIndex(d => d.rid === last.routineId);
+  let j = pos, gap = 0;
+  do { j = (j + 1) % len; gap++; } while (!ok(j) && gap <= len);
+  if (!rest) return { r: rOf(j), pos: j, inDays: null };
+  return { r: rOf(j), pos: j, inDays: Math.max(0, dayDiff(today(), addDays(last.date, gap))) };
 }
 function weakPoints() { // Ø der letzten 4 abgeschlossenen Trainingswochen
   const weeks = [1, 2, 3, 4].map(i => { const d = new Date(); d.setDate(d.getDate() - 7 * i); return weekVolume(d); })
@@ -1109,44 +1151,73 @@ function muscleSheet(m) {
 /* ---- Plan-Baukasten ---- */
 let PB = null;
 function programSheet(id) {
-  const p = S.programs.find(x => x.id === id);
-  PB = p ? { id: p.id, name: p.name, perWeek: p.perWeek || 3, days: p.days.map(d => ({ ...d })), active: S.activeProgram === p.id }
-    : { id: null, name: '', perWeek: 3, days: [], active: true };
+  const p = S.programs.find(x => x.id === id), mode = p ? progMode(p) : 'week';
+  const week = {}, seq = [];
+  if (p && mode === 'week') for (const d of p.days) if (d.wd != null && d.rid) week[d.wd] = d.rid;
+  if (p && mode === 'cycle') for (const d of p.days) seq.push(d.rest ? null : d.rid);
+  PB = { id: p?.id || null, name: p?.name || '', mode, perWeek: p?.perWeek || 3, week, seq, active: p ? S.activeProgram === p.id : true };
   renderProgramSheet();
 }
 function syncPB() {
   if (!PB || !$('#pb_name')) return;
   PB.name = $('#pb_name').value;
-  PB.perWeek = Math.max(1, Math.min(14, num($('#pb_per').value) || PB.perWeek));
+  if ($('#pb_per')) PB.perWeek = Math.max(1, Math.min(14, num($('#pb_per').value) || PB.perWeek));
   PB.active = $('#pb_active').checked;
-  $$('[data-pbwd]').forEach(s => { PB.days[+s.dataset.pbwd].wd = s.value === '' ? null : +s.value; });
+  $$('[data-pbwk]').forEach(s => { if (s.value) PB.week[s.dataset.pbwk] = s.value; else delete PB.week[s.dataset.pbwk]; });
 }
+// PB → Plan-Datenstruktur
+function pbProgram() {
+  return { mode: PB.mode, perWeek: PB.perWeek, days: PB.mode === 'week' ? WD_ORDER.filter(w => PB.week[w]).map(w => ({ rid: PB.week[w], wd: w })) : PB.seq.map(rid => (rid ? { rid } : { rest: true })) };
+}
+const rName = id => S.routines.find(r => r.id === id)?.name || '?';
+function routineOptions(sel) {
+  const mine = new Set([...Object.values(PB.week), ...PB.seq].filter(Boolean)), opt = r => `<option value="${r.id}" ${r.id === sel ? 'selected' : ''}>${esc(r.name)}</option>`;
+  const inPlan = S.routines.filter(r => mine.has(r.id)), other = S.routines.filter(r => !mine.has(r.id));
+  return `${inPlan.length ? `<optgroup label="In diesem Plan">${inPlan.map(opt).join('')}</optgroup>` : ''}${other.length ? `<optgroup label="Weitere Trainingstage">${other.map(opt).join('')}</optgroup>` : ''}`;
+}
+const dayInfo = r => `${r.exIds.length} Übungen · ${r.exIds.reduce((a, id) => a + (exById(id) ? daySets(r, exById(id)) : 0), 0)} Sätze`;
 function renderProgramSheet(keep) {
-  PB.days = PB.days.filter(d => S.routines.some(r => r.id === d.rid));
-  const days = programDays(PB), sched = days.some(d => d.wd != null);
-  const vol = plannedVolume(PB);
+  for (const w of Object.keys(PB.week)) if (!S.routines.some(r => r.id === PB.week[w])) delete PB.week[w];
+  PB.seq = PB.seq.filter(id => id == null || S.routines.some(r => r.id === id));
+  const pg = pbProgram(), vol = plannedVolume(pg), rest = PB.seq.some(x => x == null);
   const low = MUSCLE_LIST.filter(([m]) => vol[m] < effTarget(m)[0]).map(([m]) => m);
-  const unused = S.routines.filter(r => !PB.days.some(d => d.rid === r.id));
-  const scroll = keep ? $("#sheet .sheet-panel").scrollTop : 0;
-  openSheet(`<h2>${PB.id ? '✎ Plan bearbeiten' : 'Plan bauen'}</h2>
+  const scroll = keep ? $('#sheet .sheet-panel').scrollTop : 0;
+  const nTrain = PB.mode === 'week' ? Object.keys(PB.week).length : PB.seq.filter(Boolean).length;
+  openSheet(`<h2>${PB.id ? 'Plan bearbeiten' : 'Plan bauen'}</h2>
     <label class="f"><span>Name</span><input id="pb_name" value="${esc(PB.name)}" placeholder="z.B. Mein 4er-Split"></label>
-    <div class="grid2"><label class="f"><span>Einheiten pro Woche</span><input id="pb_per" inputmode="numeric" value="${PB.perWeek}" ${sched ? 'disabled' : ''}></label>
-      <label class="f row" style="margin-top:22px"><input type="checkbox" id="pb_active" ${PB.active ? 'checked' : ''}> <span style="display:inline;margin:0">Aktiver Plan</span></label></div>
-    <div class="small muted">${sched ? 'Feste Wochentage: jeder Tag mit Wochentag zählt 1× pro Woche.' : 'Rotation: die Tage werden der Reihe nach trainiert. Optional feste Wochentage zuordnen.'}</div>
+    <label class="row" style="margin:-2px 0 12px"><input type="checkbox" id="pb_active" ${PB.active ? 'checked' : ''}> <span>Aktiver Plan</span></label>
+    <div class="seg" id="pb_mode">${[['week', 'Nach Wochentagen'], ['cycle', 'Als Reihenfolge']].map(([k, l]) => `<button class="${PB.mode === k ? 'on' : ''}" data-act="pbMode" data-k="${k}">${l}</button>`).join('')}</div>
+    <div class="small muted" style="margin:8px 0 4px">${PB.mode === 'week' ? 'Jeder Wochentag bekommt einen Trainingstag oder ist Ruhetag – z.B. Mo Push, Mi Pull, Fr Beine.' : 'Die Tage laufen der Reihe nach, unabhängig vom Wochentag – z.B. Push → Pull → Ruhetag → Beine → Ruhetag, dann von vorn. Ruhetage zählen als Kalendertage.'}</div>
     <h3>Trainingstage</h3>
-    ${days.length ? `<div class="list">${days.map((d, i) => `<div class="item">
-      <div class="t"><b>${i + 1}. ${esc(d.r.name)}</b><span>${d.r.exIds.length} Übungen · ${d.r.exIds.reduce((a, id) => a + (exById(id) ? daySets(d.r, exById(id)) : 0), 0)} Sätze</span></div>
-      <select class="wd" data-pbwd="${i}"><option value="">flexibel</option>${[1, 2, 3, 4, 5, 6, 0].map(w => `<option value="${w}" ${d.wd === w ? 'selected' : ''}>${DAYS[w].slice(0, 2)}</option>`).join('')}</select>
-      <button class="x" data-act="pbEditDay" data-i="${i}">✎</button>${i ? `<button class="x" data-act="pbMove" data-i="${i}">↑</button>` : ''}<button class="x" data-act="pbDel" data-i="${i}">×</button></div>`).join('')}</div>`
-    : '<div class="empty small">Noch keine Tage. Leg einen neuen an oder nimm einen vorhandenen.</div>'}
-    <div class="row" style="margin-top:8px"><button class="btn" data-act="pbNewDay">+ Neuer Tag</button>
-      ${unused.length ? `<select id="pb_addday" class="grow" style="flex:1"><option value="">+ Vorhandener Tag …</option>${unused.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select>` : ''}</div>
+    ${PB.mode === 'week' ? `<div class="list wk-plan">${WD_ORDER.map(w => `<div class="item"><span class="wk-d">${DAYS[w].slice(0, 2)}</span>
+        <select data-pbwk="${w}"><option value="">Ruhetag</option>${routineOptions(PB.week[w])}</select>
+        ${PB.week[w] ? `<button class="x" data-act="pbEditR" data-rid="${PB.week[w]}" aria-label="Tag bearbeiten">✎</button>` : '<span class="x-sp"></span>'}</div>`).join('')}</div>
+      <button class="btn block" style="margin-top:8px" data-act="pbNewDay">+ Neuen Trainingstag anlegen</button>`
+    : `${PB.seq.length ? `<div class="list" data-dnd="cycle">${PB.seq.map((id, i) => `<div class="item ${id ? '' : 'plan-rest'}" data-dnd-i="${i}">
+        <span class="drag" aria-label="Ziehen zum Verschieben">${DRAG_IC}</span>
+        <div class="t"><b>Tag ${i + 1} · ${id ? esc(rName(id)) : 'Ruhetag'}</b><span>${id ? dayInfo(S.routines.find(r => r.id === id)) : 'Erholung'}</span></div>
+        ${id ? `<button class="x" data-act="pbEditR" data-rid="${id}" aria-label="Tag bearbeiten">✎</button>` : ''}
+        <span class="updn"><button data-act="pbSeqMove" data-i="${i}" data-d="-1" ${i ? '' : 'disabled'} aria-label="nach oben">▲</button><button data-act="pbSeqMove" data-i="${i}" data-d="1" ${i < PB.seq.length - 1 ? '' : 'disabled'} aria-label="nach unten">▼</button></span>
+        <button class="x" data-act="pbSeqDel" data-i="${i}" aria-label="Entfernen">×</button></div>`).join('')}</div>
+        <div class="small muted" style="margin-top:6px">Am Griff ⠿ ziehen oder mit ▲▼ verschieben.</div>` : '<div class="empty small">Noch keine Tage. Füge Trainingstage und Ruhetage in der gewünschten Reihenfolge hinzu.</div>'}
+      <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="pbNewDay">+ Neuer Tag</button><button class="btn sm" data-act="pbAddRest">+ Ruhetag</button>
+        ${S.routines.length ? `<select id="pb_addday" class="grow" style="flex:1;min-width:150px"><option value="">+ Vorhandener Tag …</option>${routineOptions()}</select>` : ''}</div>
+      ${rest ? `<div class="small muted" style="margin-top:10px">Zyklus: ${PB.seq.length} Tage (${nTrain} Training, ${PB.seq.length - nTrain} Ruhe) → ca. ${fmt(nTrain * 7 / Math.max(1, PB.seq.length), 1)} Trainings pro Woche.</div>`
+        : `<label class="f" style="margin-top:12px"><span>Trainings pro Woche (ohne Ruhetage im Zyklus)</span><input id="pb_per" inputmode="numeric" value="${PB.perWeek}"></label>`}`}
     <h3>Geplantes Wochenvolumen</h3>
-    ${days.length ? (low.length ? `<div class="sugg deload">⚠ Unter Ziel: ${low.map(m => `${isFocus(m) ? '★' : ''}${mName(m)}`).join(', ')}</div>` : '<div class="sugg up">Alle Muskeln mindestens im Zielbereich.</div>') : ''}
+    ${nTrain ? (low.length ? `<div class="sugg deload">⚠ Unter Ziel: ${low.map(m => `${isFocus(m) ? '★' : ''}${mName(m)}`).join(', ')}</div>` : '<div class="sugg up">Alle Muskeln mindestens im Zielbereich.</div>') : ''}
     <div class="list">${MUSCLE_LIST.map(([m]) => { const t = effTarget(m); return `<div class="item"><div class="t"><b>${isFocus(m) ? '★ ' : ''}${mName(m)}</b>${vbar(vol[m], t)}</div>
       <span class="small ${volStatus(vol[m], t) === 'low' ? 'down' : 'muted'}" style="min-width:64px;text-align:right">${fmt(vol[m], 1)} / ${t[0]}–${t[1]}</span></div>`; }).join('')}</div>
-    <div class="sheet-actions">${PB.id ? '<button class="btn danger" data-act="pbDelete">Löschen</button>' : ''}<button class="btn" data-act="closeSheet">Abbrechen</button><button class="btn primary" data-act="pbSave">Speichern</button></div>`);
+    <div class="sheet-actions">${PB.id ? '<button class="btn danger" data-act="pbDelete">Löschen</button><button class="btn" data-act="pbDup">Duplizieren</button>' : '<button class="btn" data-act="closeSheet">Abbrechen</button>'}<button class="btn primary" data-act="pbSave">Speichern</button></div>`);
   $('#sheet .sheet-panel').scrollTop = scroll;
+}
+// neuer/bearbeiteter Trainingstag aus dem Plan-Editor kommt zurück
+function pbAttach(id) {
+  if (PB.mode === 'cycle') { if (!PB.seq.includes(id)) PB.seq.push(id); }
+  else if (!Object.values(PB.week).includes(id)) {
+    const free = WD_ORDER.find(w => !PB.week[w]);
+    if (free != null) { PB.week[free] = id; toast(`${rName(id)} → ${DAYS[free]} (änderbar)`); }
+  }
 }
 
 /* Muskel-Auswahl im Übungs-Editor */
@@ -2907,7 +2978,7 @@ VIEWS.today = () => {
       <div class="next">
         <div style="flex:1;min-width:0">
           <div style="font-size:19px;font-weight:550;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(S.active ? S.active.name : nextR ? nextR.name.split(' (')[0] : 'Freies Training')}</div>
-          <div class="meta">${S.active ? 'Weiter loggen' : nextR ? `${nextR.exIds.length} Übungen${nx?.inDays ? ` · ${DAYS[nx.wd]}` : ''}${activeProgram() ? ` · ${esc(activeProgram().name)}` : ''}` : 'Kein Plan aktiv'}</div>
+          <div class="meta">${S.active ? 'Weiter loggen' : nextR ? `${nextR.exIds.length} Übungen${nx && whenTxt(nx) !== 'Als Nächstes' ? ` · ${whenTxt(nx)}` : ''}${activeProgram() ? ` · ${esc(activeProgram().name)}` : ''}` : 'Kein Plan aktiv'}</div>
         </div>
         <button class="play" ${S.active ? 'data-act="tab" data-tab="train"' : nextR ? `data-act="startWorkout" data-id="${nextR.id}"` : 'data-act="startWorkout"'} aria-label="Starten">${ic('play')}</button>
       </div>
@@ -3048,16 +3119,14 @@ function trainOverview() {
     return pg ? `<div class="card accent">
       <div class="card-head"><h2>${esc(pg.name)}</h2><button class="btn sm" data-act="editProgram" data-id="${pg.id}">✎ Bearbeiten</button></div>
       <div class="small muted" style="margin:-4px 0 10px">${programMeta(pg)}</div>
-      ${nx ? `<button class="btn primary block" data-act="startWorkout" data-id="${nx.r.id}">▶ ${nx.inDays ? `Nächstes (${DAYS[nx.wd].slice(0, 2)})` : nx.wd != null ? 'Heute' : 'Als Nächstes'}: ${esc(nx.r.name)}</button>` : ''}
-      <div class="list" style="margin-top:10px">${days.map(d => `<div class="item"><div class="t"><b>${d.wd != null ? `<span class="pill">${DAYS[d.wd].slice(0, 2)}</span> ` : ''}${esc(d.r.name)}</b>
-        <span>${d.r.exIds.map(id => { const ex = exById(id); return ex ? `${esc(ex.name)} ${daySets(d.r, ex)}×` : ''; }).filter(Boolean).join(' · ')}</span></div>
-        <button class="btn sm" data-act="startWorkout" data-id="${d.r.id}">Start</button></div>`).join('')}</div>
+      ${nx ? `<button class="btn primary block" data-act="startWorkout" data-id="${nx.r.id}" ${nx.pos != null ? `data-pos="${nx.pos}"` : ''}>▶ ${whenTxt(nx)}: ${esc(nx.r.name)}</button>` : ''}
+      <div class="list" style="margin-top:10px">${planRows(pg, nx)}</div>
       <button class="btn block ghost" style="margin-top:8px" data-act="goMuscles">Volumen pro Muskel ansehen</button>
     </div>` : '<div class="card"><b>Kein aktiver Plan</b><div class="small muted" style="margin-top:4px">Bau dir einen Plan oder aktiviere eine Vorlage unten.</div></div>';
   })()}
   ${planProgressCard()}
   <h3>Alle Trainingspläne</h3>
-  <div class="list">${S.programs.map(p => `<div class="item tap" data-act="editProgram" data-id="${p.id}"><div class="t"><b>${esc(p.name)}</b><span>${programMeta(p)}</span></div>
+  <div class="list">${S.programs.map(p => `<div class="item tap" data-act="editProgram" data-id="${p.id}"><div class="t"><b>${esc(p.name)}</b><span>${progMode(p) === 'week' ? 'Wochentage' : 'Reihenfolge'} · ${programMeta(p)}</span></div>
     ${p.id === S.activeProgram ? '<span class="pill acc">Aktiv</span>' : `<button class="btn sm" data-act="setActiveProgram" data-id="${p.id}">Aktivieren</button>`}</div>`).join('')}</div>
   <div class="row" style="margin-top:8px">
     <button class="btn primary grow" data-act="editProgram">Plan bauen</button>
@@ -3129,7 +3198,7 @@ function workoutLogger() {
         <button class="btn sm" data-act="removeSet" data-e="${ei}">− Satz</button>
         ${(e.sets.find(x => x.type !== 'warm')?.w || 0) > 0 ? `<button class="btn sm ${e.sets.some(x => x.type === 'warm') ? 'ghost' : ''}" data-act="addWarmup" data-e="${ei}">${e.sets.some(x => x.type === 'warm') ? '− Aufwärmen' : '+ Aufwärmen'}</button>` : ''}
         <span class="grow"></span>
-        ${ei > 0 ? `<button class="btn sm ghost" data-act="moveEntry" data-e="${ei}">↑</button>` : ''}
+        ${ei > 0 ? `<button class="btn sm ghost" data-act="moveEntry" data-e="${ei}">↑</button>` : ''}${ei < a.entries.length - 1 ? `<button class="btn sm ghost" data-act="moveEntry" data-e="${ei}" data-d="1">↓</button>` : ''}
         <button class="btn sm ghost danger" data-act="removeEntry" data-e="${ei}">Entfernen</button>
       </div>
     </div>`;
@@ -3783,11 +3852,14 @@ function renderRoutineSheet(keep) {
   openSheet(`<h2>${RC.id ? 'Trainingstag bearbeiten' : 'Neuer Trainingstag'}</h2>
     <label class="f"><span>Name</span><input id="r_name" value="${esc(RC.name)}" placeholder="z.B. Oberkörper A"></label>
     <h3>Übungen & Sätze</h3>
-    ${RC.exIds.length ? `<div class="list">${RC.exIds.map((id, i) => { const ex = exById(id), n = RC.sets[id] ?? ex?.sets ?? 3; return `<div class="item">
+    ${RC.exIds.length ? `<div class="list rt-list" data-dnd="routine">${RC.exIds.map((id, i) => { const ex = exById(id), n = RC.sets[id] ?? ex?.sets ?? 3; return `<div class="item" data-dnd-i="${i}">
+      <span class="drag" aria-label="Ziehen zum Verschieben">${DRAG_IC}</span>
       <div class="t"><b>${i + 1}. ${esc(ex?.name || '?')}</b><span>${(ex?.pm || []).map(mName).join(', ')}</span></div>
       <button class="wbtn ${RC.warm?.[id] ? 'on' : ''}" data-act="rWarm" data-i="${i}" aria-label="Aufwärmsätze">W</button>
       <div class="stepper"><button data-act="rSets" data-i="${i}" data-d="-1">−</button><b>${n}</b><button data-act="rSets" data-i="${i}" data-d="1">+</button></div>
-      ${i ? `<button class="x" data-act="rMove" data-i="${i}">↑</button>` : ''}<button class="x" data-act="rDel" data-i="${i}">×</button></div>`; }).join('')}</div>` : '<div class="empty small">Noch keine Übungen.</div>'}
+      <span class="updn"><button data-act="rMove" data-i="${i}" data-d="-1" ${i ? '' : 'disabled'} aria-label="nach oben">▲</button><button data-act="rMove" data-i="${i}" data-d="1" ${i < RC.exIds.length - 1 ? '' : 'disabled'} aria-label="nach unten">▼</button></span>
+      <button class="x" data-act="rDel" data-i="${i}">×</button></div>`; }).join('')}</div>
+    <div class="small muted" style="margin-top:6px">Reihenfolge ändern: am Griff ⠿ ziehen oder mit ▲▼.</div>` : '<div class="empty small">Noch keine Übungen.</div>'}
     ${RC.exIds.length ? '<div class="small muted" style="margin-top:8px"><b style="color:var(--accent)">W</b> = startet automatisch mit Aufwärmsätzen (Rampe zum Arbeitsgewicht).</div>' : ''}
     <button class="btn block" style="margin-top:12px" data-act="rAddLib">+ Übung aus der Bibliothek</button>
     ${top.length ? `<h3>Volumen dieses Tages (Sätze)</h3><div class="chips">${top.map(([m, v]) => `<span class="chip">${mName(m)} ${fmt(v, 1)}</span>`).join('')}</div>` : ''}
@@ -3820,7 +3892,7 @@ function finishWorkout() {
     const prev = bestSet(exHistory(e.exId).flatMap(x => x.sets)), now = bestSet(WK(e.sets));
     if (!prev || setScore(now) > setScore(prev) + 1e-6) prs.push({ ex: exById(e.exId), now, first: !prev });
   }
-  const w = { id: a.id, name: a.name, routineId: a.routineId, date: a.date, start: a.start, end: Date.now(), entries };
+  const w = { id: a.id, name: a.name, routineId: a.routineId, date: a.date, start: a.start, end: Date.now(), entries, ...(a.planId ? { planId: a.planId, planPos: a.planPos } : {}) };
   S.workouts.push(w); S.active = null; UI.rest = null; save();
   const vol = entries.reduce((s, e) => s + WK(e.sets).reduce((b, x) => b + x.w * x.r, 0), 0);
   const ups = entries.map(e => ({ ex: exById(e.exId) })).filter(x => x.ex).map(x => ({ ...x, s: suggest(x.ex) }));
@@ -4392,7 +4464,7 @@ const A = {
   },
   delMeasure: el => { if (confirm('Messung löschen?')) { S.measures = S.measures.filter(m => m.id !== el.dataset.id); save(); render(); } },
 
-  startWorkout: el => startWorkout(el.dataset.id),
+  startWorkout: el => startWorkout(el.dataset.id, el.dataset.pos),
   cancelWorkout: () => { if (confirm('Training wirklich verwerfen? Nichts wird gespeichert.')) { S.active = null; UI.rest = null; tickRest(); save(); render(); } },
   finishWorkout,
   toggleSet: el => {
@@ -4412,7 +4484,7 @@ const A = {
   addSet: el => { const e = S.active.entries[+el.dataset.e], l = e.sets.at(-1); e.sets.push({ w: l?.w ?? 0, r: null, t: l?.t ?? null, done: false }); save(); render(); },
   removeSet: el => { const e = S.active.entries[+el.dataset.e]; if (e.sets.length > 1) e.sets.pop(); save(); render(); },
   removeEntry: el => { if (confirm('Übung aus diesem Training entfernen?')) { S.active.entries.splice(+el.dataset.e, 1); save(); render(); } },
-  moveEntry: el => { const i = +el.dataset.e, en = S.active.entries; [en[i - 1], en[i]] = [en[i], en[i - 1]]; save(); render(); },
+  moveEntry: el => { const i = +el.dataset.e, j = i + +(el.dataset.d || -1), en = S.active.entries; if (j < 0 || j >= en.length) return; [en[i], en[j]] = [en[j], en[i]]; save(); render(); },
   addEntry: exercisePicker,
   pickExercise: el => { S.active.entries.push(newEntry(exById(el.dataset.id))); save(); closeSheet(); render(); window.scrollTo(0, document.body.scrollHeight); },
   openExercise: el => exerciseSheet(el.dataset.id),
@@ -4436,7 +4508,7 @@ const A = {
   },
   delExercise: el => { if (confirm('Übung löschen?')) { S.exercises = S.exercises.filter(e => e.id !== el.dataset.id); save(); closeSheet(); render(); } },
   editRoutine: el => routineSheet(el.dataset.id),
-  rMove: el => { const i = +el.dataset.i; [RC.exIds[i - 1], RC.exIds[i]] = [RC.exIds[i], RC.exIds[i - 1]]; renderRoutineSheet(true); },
+  rMove: el => { const i = +el.dataset.i, j = i + +(el.dataset.d || -1); if (j < 0 || j >= RC.exIds.length) return; [RC.exIds[i], RC.exIds[j]] = [RC.exIds[j], RC.exIds[i]]; renderRoutineSheet(true); },
   rDel: el => { RC.exIds.splice(+el.dataset.i, 1); renderRoutineSheet(true); },
   rSets: el => { const id = RC.exIds[+el.dataset.i], ex = exById(id); RC.sets[id] = Math.max(1, Math.min(10, (RC.sets[id] ?? ex?.sets ?? 3) + +el.dataset.d)); renderRoutineSheet(true); },
   rBack: () => renderProgramSheet(),
@@ -4449,7 +4521,7 @@ const A = {
     if (id) Object.assign(S.routines.find(r => r.id === id), { name, exIds: RC.exIds, sets, warm });
     else { id = uid(); S.routines.push({ id, name, exIds: RC.exIds, sets, warm }); }
     save(); render();
-    if (RC.back) { if (!PB.days.some(d => d.rid === id)) PB.days.push({ rid: id, wd: null }); renderProgramSheet(); }
+    if (RC.back) { pbAttach(id); renderProgramSheet(); }
     else { closeSheet(); toast('✓ Trainingstag gespeichert'); }
   },
   delRoutine: () => {
@@ -4462,18 +4534,35 @@ const A = {
   editProgram: el => programSheet(el.dataset.id),
   setActiveProgram: el => { S.activeProgram = el.dataset.id; save(); render(); toast('✓ Plan aktiviert'); },
   pbNewDay: () => { syncPB(); routineSheet(null, 'pb'); },
-  pbEditDay: el => { syncPB(); routineSheet(PB.days[+el.dataset.i].rid, 'pb'); },
-  pbMove: el => { syncPB(); const i = +el.dataset.i; [PB.days[i - 1], PB.days[i]] = [PB.days[i], PB.days[i - 1]]; renderProgramSheet(true); },
-  pbDel: el => { syncPB(); PB.days.splice(+el.dataset.i, 1); renderProgramSheet(true); },
+  pbEditR: el => { syncPB(); routineSheet(el.dataset.rid, 'pb'); },
+  pbMode: el => {
+    syncPB(); const k = el.dataset.k; if (k === PB.mode) return;
+    if (k === 'cycle') { const ws = WD_ORDER.map(w => PB.week[w] || null); while (ws.length && ws.at(-1) == null) ws.pop(); PB.seq = ws; } // Wochenrhythmus bleibt als Zyklus erhalten
+    else { PB.week = {}; PB.seq.slice(0, 7).forEach((id, i) => { if (id) PB.week[WD_ORDER[i]] = id; }); if (PB.seq.length > 7) toast('Nur die ersten 7 Tage passen in eine Woche'); }
+    PB.mode = k; renderProgramSheet(true);
+  },
+  pbAddRest: () => { syncPB(); PB.seq.push(null); renderProgramSheet(true); },
+  pbSeqMove: el => { syncPB(); const i = +el.dataset.i, j = i + +el.dataset.d; if (j < 0 || j >= PB.seq.length) return; [PB.seq[i], PB.seq[j]] = [PB.seq[j], PB.seq[i]]; renderProgramSheet(true); },
+  pbSeqDel: el => { syncPB(); PB.seq.splice(+el.dataset.i, 1); renderProgramSheet(true); },
   pbSave: () => {
     syncPB();
     const name = PB.name.trim(); if (!name) return toast('Name eingeben');
-    if (!PB.days.length) return toast('Mindestens einen Trainingstag hinzufügen');
-    const data = { name, perWeek: PB.perWeek, days: PB.days.map(d => ({ rid: d.rid, wd: d.wd })) };
+    const data = { name, ...pbProgram() };
+    if (!data.days.some(d => d.rid)) return toast('Mindestens einen Trainingstag hinzufügen');
     let id = PB.id;
     if (id) Object.assign(S.programs.find(p => p.id === id), data); else { id = uid(); S.programs.push({ id, ...data }); }
     if (PB.active) S.activeProgram = id; else if (S.activeProgram === id) S.activeProgram = null;
     save(); closeSheet(); render(); toast('✓ Plan gespeichert');
+  },
+  pbDup: () => {
+    const saved = S.programs.find(p => p.id === PB.id); if (!saved) return;
+    const src = { name: saved.name, mode: progMode(saved), perWeek: saved.perWeek, days: saved.days }, map = {};
+    for (const rid of new Set(src.days.map(d => d.rid).filter(Boolean))) { // Trainingstage mitkopieren → unabhängig bearbeitbar
+      const r = S.routines.find(x => x.id === rid); if (!r) continue;
+      const nr = JSON.parse(JSON.stringify(r)); nr.id = uid(); S.routines.push(nr); map[rid] = nr.id;
+    }
+    const id = uid(); S.programs.push({ id, name: src.name + ' (Kopie)', mode: src.mode, perWeek: src.perWeek, days: src.days.map(d => (d.rid ? { ...d, rid: map[d.rid] || d.rid } : { ...d })) });
+    save(); render(); programSheet(id); toast('✓ Kopie erstellt – Trainingstage sind unabhängig vom Original');
   },
   pbDelete: () => {
     if (!confirm('Plan löschen? Trainingstage & Verlauf bleiben erhalten.')) return;
@@ -4627,6 +4716,46 @@ function readSettingsForm() {
   const r = parseRest($('#s_rest')?.value); if (r) st.restSec = r;
 }
 
+/* ---------- Ziehen & Ablegen: Listen mit data-dnd, Einträge mit data-dnd-i, Griff .drag ---------- */
+const DRAG_IC = '<svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+const DND_MOVE = {
+  routine: (f, t) => { RC.exIds.splice(t, 0, RC.exIds.splice(f, 1)[0]); renderRoutineSheet(true); },
+  cycle: (f, t) => { syncPB(); PB.seq.splice(t, 0, PB.seq.splice(f, 1)[0]); renderProgramSheet(true); },
+};
+let DND = null;
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest('.drag'), item = h?.closest('[data-dnd-i]'), list = item?.parentElement;
+  if (!h || !list?.dataset.dnd) return;
+  e.preventDefault();
+  const items = [...list.children].filter(x => x.hasAttribute('data-dnd-i'));
+  const sc = list.closest('.sheet-panel') || document.scrollingElement;
+  DND = { list, items, rects: items.map(x => x.getBoundingClientRect()), from: items.indexOf(item), to: items.indexOf(item), y0: e.clientY, item, pid: e.pointerId, sc, st0: sc.scrollTop };
+  item.classList.add('dragging'); list.classList.add('dnd-on');
+  try { h.setPointerCapture(e.pointerId); } catch {}
+  navigator.vibrate?.(10);
+});
+document.addEventListener('pointermove', e => {
+  if (!DND || e.pointerId !== DND.pid) return;
+  e.preventDefault();
+  // am Rand automatisch mitscrollen
+  const edge = e.clientY > innerHeight - 80 ? 10 : e.clientY < 90 ? -10 : 0;
+  if (edge) DND.sc.scrollTop += edge;
+  const { items, rects, from } = DND, dy = e.clientY - DND.y0 + (DND.sc.scrollTop - DND.st0), hgt = rects[from].height + 1, c = rects[from].top + rects[from].height / 2 + dy;
+  let to = from;
+  rects.forEach((r, i) => { const mid = r.top + r.height / 2; if (i < from && c < mid) to = Math.min(to, i); if (i > from && c > mid) to = Math.max(to, i); });
+  if (to !== DND.to) navigator.vibrate?.(5);
+  DND.to = to; DND.item.style.transform = `translateY(${dy}px)`;
+  items.forEach((x, i) => { if (i === from) return; const s = from < to && i > from && i <= to ? -hgt : from > to && i < from && i >= to ? hgt : 0; x.style.transform = s ? `translateY(${s}px)` : ''; });
+}, { passive: false });
+function dndEnd(e) {
+  if (!DND || (e && e.pointerId !== DND.pid)) return;
+  const { items, list, from, to } = DND; DND = null;
+  items.forEach(x => { x.style.transform = ''; x.classList.remove('dragging'); }); list.classList.remove('dnd-on');
+  if (to !== from) DND_MOVE[list.dataset.dnd]?.(from, to);
+}
+document.addEventListener('pointerup', dndEnd);
+document.addEventListener('pointercancel', dndEnd);
+
 /* ---------- Events ---------- */
 document.addEventListener('click', e => {
   const tab = e.target.closest('.tabbar [data-tab]');
@@ -4664,8 +4793,8 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'r_add' && e.target.value) { if (!RC.exIds.includes(e.target.value)) RC.exIds.push(e.target.value); renderRoutineSheet(true); }
-  if (e.target.id === 'pb_addday' && e.target.value) { syncPB(); PB.days.push({ rid: e.target.value, wd: null }); renderProgramSheet(true); }
-  if (e.target.dataset?.pbwd != null || e.target.id === 'pb_per' || e.target.id === 'pb_active') { syncPB(); renderProgramSheet(true); }
+  if (e.target.id === 'pb_addday' && e.target.value) { syncPB(); PB.seq.push(e.target.value); renderProgramSheet(true); }
+  if (e.target.dataset?.pbwk != null || e.target.id === 'pb_per' || e.target.id === 'pb_active') { syncPB(); renderProgramSheet(true); }
   if (e.target.id === 'pr_kind') prKindFields();
   if (e.target.id === 'gl_ex') glHint();
   if (e.target.id === 'ek_auto') { S.settings.autoKcal = e.target.checked; save(); render(); if (e.target.checked) { S.meta.autoKcalWeek = null; autoKcalCheck(); } }

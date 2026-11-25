@@ -665,3 +665,19 @@ body.food-tab .view { padding-bottom: 96px; }
 .prg-spark .spark { width: 90px; height: 30px; display: block; }
 .prg-list .item { gap: 10px; }
 .prg-list .pill { min-width: 62px; text-align: center; }
+
+/* Pläne: Wochentage, Zyklus, Ziehen & Ablegen */
+.wk-plan .item { padding: 10px 14px; gap: 10px; }
+.wk-d { width: 30px; flex: none; font-weight: 600; color: var(--accent); font-size: 14px; }
+.wk-plan select { flex: 1; min-width: 0; }
+.x-sp { width: 26px; flex: none; }
+.plan-rest .t b, .plan-rest .t span { color: var(--faint); }
+.plan-next { background: color-mix(in srgb, var(--accent) 7%, var(--card)); }
+.drag { flex: none; width: 22px; height: 34px; display: grid; place-items: center; color: var(--faint); cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; margin-left: -6px; }
+.drag svg { width: 18px; height: 18px; fill: currentColor; }
+.dnd-on .item { transition: transform .16s ease; }
+.dnd-on .item.dragging { transition: none; position: relative; z-index: 3; background: var(--card2); box-shadow: 0 10px 30px rgba(0, 0, 0, .55); border-radius: 14px; }
+.updn { display: flex; flex-direction: column; gap: 2px; flex: none; }
+.updn button { width: 26px; height: 17px; border: 0; border-radius: 6px; background: rgba(255, 255, 255, .05); color: var(--muted); font-size: 8.5px; line-height: 1; padding: 0; }
+.updn button:disabled { opacity: .25; }
+.rt-list .item { gap: 8px; padding-left: 12px; padding-right: 10px; }
