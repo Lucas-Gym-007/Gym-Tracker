@@ -26,6 +26,7 @@ Installierbar als App auf dem Handy (PWA). Sie läuft offline und braucht keinen
 - Gewichtsverlauf mit Diagramm, Zielgewicht, kg/Woche-Trend und Prognose, wann du dein Ziel erreichst
 - Körpermaße (Bauch, Brust, Arm …, KFA)
 - **Fortschrittsfotos** mit Vorher/Nachher-Vergleich (Abstand in Wochen und Gewichtsdifferenz). Sie werden verkleinert und nur auf dem Gerät gespeichert.
+- **Fotos löschen:** einzeln in der Foto-Ansicht oder mehrere auf einmal über „Auswählen“ in der Galerie (inkl. „Alle auswählen“). Gelöschte Fotos werden sofort vom Gerät entfernt.
 - **Coach**: prüft dein Tempo beim Abnehmen oder Aufbauen und sagt dir, ob du mehr oder weniger essen solltest
 
 **💪 Progress: Muskeln (Wochenvolumen)**

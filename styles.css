@@ -684,3 +684,12 @@ body.food-tab .view { padding-bottom: 96px; }
 
 /* Ernährungs-Verlauf */
 .fh .card-head .prg-chips .chip { padding: 4px 10px; }
+
+/* Fotos auswählen & löschen */
+.ph-bar { display: flex; align-items: center; gap: 8px; margin: 2px 0 12px; }
+.photos.selecting .ph img { transition: transform .15s, opacity .15s; }
+.ph.sel img { transform: scale(.92); opacity: .75; border-radius: 12px; }
+.ph.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.ph-check { position: absolute; top: 7px; right: 7px; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .85); background: rgba(0, 0, 0, .35); display: grid; place-items: center; color: transparent; }
+.ph-check .ic { width: 14px; height: 14px; stroke-width: 2.6; }
+.ph.sel .ph-check { background: var(--accent); border-color: var(--accent); color: var(--bg); }

@@ -3307,16 +3307,20 @@ function progBody() {
 
 function progPhotos() {
   const a = PH.list.at(-1), b = PH.list[0];
+  if (UI.phSel) for (const id of UI.phSel) if (!PH.list.some(p => p.id === id)) UI.phSel.delete(id);
+  const sel = UI.phSel;
   return `
   <div class="card">
-    <div class="card-head"><h2>Fortschrittsfotos</h2><button class="btn sm primary" data-act="addPhoto">+ Foto</button></div>
-    ${PH.list.length >= 2 ? `<button class="cmp-teaser" data-act="photoCompare">
+    <div class="card-head"><h2>Fortschrittsfotos</h2><div class="row" style="gap:6px">${PH.list.length ? `<button class="btn sm ${sel ? 'primary' : 'ghost'}" data-act="phSelect">${sel ? 'Fertig' : 'Auswählen'}</button>` : ''}${sel ? '' : '<button class="btn sm primary" data-act="addPhoto">+ Foto</button>'}</div></div>
+    ${sel ? `<div class="ph-bar"><button class="btn sm ghost" data-act="phSelAll">${sel.size === PH.list.length ? 'Keine auswählen' : 'Alle auswählen'}</button><span class="small muted grow">${sel.size ? `${sel.size} ausgewählt` : 'Fotos antippen zum Auswählen'}</span>
+      <button class="btn sm danger" data-act="phDelSel" ${sel.size ? '' : 'disabled'}>${sel.size ? `${sel.size} löschen` : 'Löschen'}</button></div>` : ''}
+    ${PH.list.length >= 2 && !sel ? `<button class="cmp-teaser" data-act="photoCompare">
       <div class="cmp"><img src="${a.url}" alt=""><img src="${b.url}" alt=""></div>
       <div class="row" style="margin-top:6px"><b class="grow">⇆ Erstes vs. neuestes Foto</b>
         <span class="pill acc">${fmt(Math.max(0, daysBetween(a.date, b.date)) / 7)} Wochen${a.kg != null && b.kg != null ? ` · ${sgn(b.kg - a.kg)} kg` : ''}</span></div></button>
       <div class="hr"></div>` : ''}
-    ${PH.list.length ? `<div class="photos">${PH.list.map(p => `<button class="ph" data-act="openPhoto" data-id="${p.id}">
-      <img src="${p.url}" alt="" loading="lazy"><span>${fmtDate(p.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}${p.kg ? ` · ${fmt(p.kg, 1)} kg` : ''}</span></button>`).join('')}</div>`
+    ${PH.list.length ? `<div class="photos ${sel ? 'selecting' : ''}">${PH.list.map(p => `<button class="ph ${sel?.has(p.id) ? 'sel' : ''}" data-act="${sel ? 'phToggle' : 'openPhoto'}" data-id="${p.id}">
+      <img src="${p.url}" alt="" loading="lazy">${sel ? `<i class="ph-check">${ic('check')}</i>` : ''}<span>${fmtDate(p.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}${p.kg ? ` · ${fmt(p.kg, 1)} kg` : ''}</span></button>`).join('')}</div>`
     : `<div class="empty small">${PH.ready ? 'Mach alle 2–4 Wochen ein Foto – gleiches Licht, gleiche Pose, gleiche Uhrzeit. Im Vergleich siehst du Fortschritt, den Waage & Spiegel nicht zeigen.' : 'Lade Fotos …'}</div>`}
     <div class="small muted" style="margin-top:8px">Fotos bleiben nur auf diesem Gerät und sind nicht im JSON-Backup enthalten.</div>
   </div>`;
@@ -4394,7 +4398,7 @@ const A = {
     renderBsPrev();
   },
   bsDone: () => { closeSheet(); render(); },
-  tab: el => { UI.tab = el.dataset.tab; closeSheet(); render(); window.scrollTo(0, 0); },
+  tab: el => { UI.tab = el.dataset.tab; UI.phSel = null; closeSheet(); render(); window.scrollTo(0, 0); },
   closeSheet,
   water: el => { const d = today(); S.water[d] = Math.max(0, (S.water[d] || 0) + +el.dataset.ml); save(); render(); },
   quickFood: () => foodSheet(),
@@ -4686,7 +4690,7 @@ const A = {
     await loadPhotos(); render();
   },
   addPhoto: () => photoCamera(),
-  progSeg: el => { UI.prog = el.dataset.k; render(); },
+  progSeg: el => { UI.prog = el.dataset.k; UI.phSel = null; render(); },
   goPrs: () => { UI.tab = 'body'; UI.prog = 'prs'; render(); window.scrollTo(0, 0); },
   addPr: el => prSheet({ kind: el.dataset.kind, title: el.dataset.title, more: !!el.dataset.more }),
   openPrGroup: el => prGroupSheet(el.dataset.key),
@@ -4729,9 +4733,18 @@ const A = {
     closeSheet(); await loadPhotos(); toast('✓ Gespeichert');
   },
   delPhoto: async el => {
-    if (!confirm('Foto löschen?')) return;
-    try { await idbTx('readwrite', st => st.delete(el.dataset.id)); } catch {}
-    closeSheet(); await loadPhotos();
+    if (!confirm('Dieses Foto unwiderruflich löschen?')) return;
+    try { await idbTx('readwrite', st => st.delete(el.dataset.id)); } catch { return toast('⚠ Löschen fehlgeschlagen'); }
+    closeSheet(); await loadPhotos(); render(); toast('Foto gelöscht');
+  },
+  phSelect: () => { UI.phSel = UI.phSel ? null : new Set(); render(); },
+  phToggle: el => { const s = UI.phSel, id = el.dataset.id; if (!s) return; if (s.has(id)) s.delete(id); else s.add(id); render(); },
+  phSelAll: () => { const s = UI.phSel; if (!s) return; if (s.size === PH.list.length) s.clear(); else PH.list.forEach(p => s.add(p.id)); render(); },
+  phDelSel: async () => {
+    const ids = [...(UI.phSel || [])]; if (!ids.length) return;
+    if (!confirm(`${ids.length === 1 ? 'Dieses Foto' : `Diese ${ids.length} Fotos`} unwiderruflich löschen?`)) return;
+    try { await idbTx('readwrite', st => ids.forEach(id => st.delete(id))); } catch { return toast('⚠ Löschen fehlgeschlagen'); }
+    UI.phSel = null; await loadPhotos(); render(); toast(`${ids.length === 1 ? 'Foto' : `${ids.length} Fotos`} gelöscht`);
   },
 };
 
